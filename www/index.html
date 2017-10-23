@@ -1,0 +1,105 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>WebGl入门基础</title>
+    <meta name="author" content="leju" />
+    <style type="text/css">
+        body,
+        div,
+        dl,
+        dt,
+        dd {
+            margin: 0;
+            padding: 0;
+        }
+        
+        a:link,
+        a:visited {
+            color: #FFF;
+            text-decoration: none;
+        }
+        
+        a:hover {
+            text-decoration: underline;
+        }
+        
+        #wrap {
+            width: 350px;
+            background: #FFF;
+            border: 12px solid #EEE;
+            border-radius: 10px;
+            margin: 10px auto 0;
+            padding: 5px 5px 4px;
+        }
+        
+        #wrap dl {
+            color: #FFF;
+            overflow: hidden;
+            background: #7CF;
+        }
+        
+        #wrap dt,
+        #wrap dd {
+            padding-left: 15px;
+            border-bottom: 1px solid #FFF;
+        }
+        
+        #wrap dt {
+            cursor: pointer;
+            font-size: 14px;
+            background: #9C0;
+            line-height: 30px;
+            font: 700 14px/30px Tahoma;
+        }
+        
+        #wrap dt.current {
+            background: #09F;
+        }
+        
+        #wrap dd {
+            background: #7CF;
+            line-height: 25px;
+            font: 12px/25px Tahoma;
+        }
+        
+        #copyright {
+            color: #999;
+            width: 374px;
+            text-align: right;
+            font: 12px/1.5 Tahoma;
+            margin: 5px auto 0;
+        }
+    </style>
+    <script src="js/CreateList.js"></script>
+    <script>
+        window.onload = function() {
+            new CreateList([{
+                project: [{
+                    text: "第一节"
+                }, {
+                    text: "顶点缓存区绘制",
+                    href: "./less01/less01.html"
+                }, {
+                    text: "顶点、索引缓冲区结合使用",
+                    href: "./less01/less02.html"
+                }]
+            }, {
+                project: [{
+                    text: "第二节"
+                }, {
+                    text: "顶点缓存区绘制",
+                    href: "./less01/less01.html"
+                }, {
+                    text: "顶点、索引缓冲区结合使用",
+                    href: "./less01/less02.html"
+                }]
+            }]);
+        };
+    </script>
+</head>
+
+<body style="display: inline"></body>
+
+</html>
