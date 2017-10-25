@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>顶点与索引缓冲区结合使用每一个点设置颜色</title>
+    <title>顶点与索引缓冲区结合使用uniform设置颜色</title>
     <style type="text/css">
         * {
             margin: 0;
@@ -56,20 +56,17 @@
             'shader': {
                 //顶点着色器代码 OpenGL ES SL 3.0规范中以前的attribute改成了in varying改成了out
                 'x-vertex': `
-                        attribute vec3 v3Position;
-                        attribute vec4 v4Color;
-                        varying   vec4 outColor;
+                        attribute vec3 v3Position;//属性变量
                         void main(){
-                            outColor    = v4Color;
                             gl_Position = vec4(v3Position,1.0);
                         }
                     `,
                 //片段着色器
                 'x-fragment': `
                         precision lowp float;//精度限制
-                        varying   vec4 outColor;
+                        uniform   vec4 color;//全局变量
                         void main(){
-                            gl_FragColor = outColor;
+                            gl_FragColor = color;
                         }
                     `
             }
@@ -90,7 +87,7 @@
      * 2 观察矩阵
      * 3 投影矩阵
      * 4 视口
-     * 每个点渲染颜色
+     * 使用全局变量
      */
     const canvas = document.querySelector('canvas');
     let ist = true;
@@ -137,13 +134,15 @@
         //将着色器生成编译代码加入渲染可执行程序
         gl.attachShader(program, vertexShader);
         gl.attachShader(program, fragmentShader);
-        //将glsl语言定义的对象绑定到js定义的对象
-        //gl.bindAttribLocation(program, v3Position, "v3Position");
+        //将glsl语言定义的对象绑定到js定义的对象 大量数据推荐使用
+        gl.bindAttribLocation(program, v3Position, "v3Position");
+        //gl.bindAttribLocation(program, v4Color, "color");
         //将渲染可执行程序与显卡链接
         gl.linkProgram(program);
         //只可以链接之后读取使用 优先使用
-        v3Position = gl.getAttribLocation(program, "v3Position");
-        v4Color = gl.getAttribLocation(program, "v4Color");
+        //v3Position = gl.getAttribLocation(program, "v3Position");
+        //获取GLSL全局变量color
+        v4Color = gl.getUniformLocation(program, "color");
         //获取链接并且进行验证渲染可执行程序
         if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
             console.log('渲染可执行程序异常: ' + gl.getProgramInfoLog(program));
@@ -206,9 +205,8 @@
         gl.enableVertexAttribArray(v3Position);
         //顶点属性指针进行绑定
         gl.vertexAttribPointer(v3Position, 3, gl.FLOAT, false, 4 * 10, 0);
-        //启用顶点属性数组并且使用上一个状态绑定的颜色缓冲区
-        gl.enableVertexAttribArray(v4Color);
-        gl.vertexAttribPointer(v4Color, 4, gl.FLOAT, false, 4 * 10, 4*6);
+        //传递颜色值
+        gl.uniform4f(v4Color,1.0,0.0,0.0,1.0);
         //开始绘制
         gl.drawArrays(gl.TRIANGLES, 0, 3);
         clicks = new Float32Array([
@@ -225,8 +223,7 @@
                 //顶点属性指针进行绑定
                 gl.vertexAttribPointer(v3Position, 3, gl.FLOAT, false, 4 * 10, 0);
                 //启用顶点属性数组并且使用上一个状态绑定的颜色缓冲区
-                gl.enableVertexAttribArray(v4Color);
-                gl.vertexAttribPointer(v4Color, 4, gl.FLOAT, false, 4 * 10, 4*6);
+                gl.uniform4f(v4Color,0.0,1.0,0.0,1.0);
             };
             ist = false;
             //第二次只更新第三个顶点数据 2*4*6 应该是第48个字节位开始写入第三点的12个字节xyz
