@@ -9,14 +9,14 @@
             margin: 0;
             padding: 0;
         }
-
+        
         html,
         body {
             width: 100%;
             height: 100%;
             background-color: #000;
         }
-
+        
         .panel {
             overflow: hidden;
             position: absolute;
@@ -26,12 +26,12 @@
             right: 0;
             z-index: 0;
         }
-
+        
         canvas {
             position: absolute;
         }
     </style>
-    <script src="../js/Utils.js"></script>
+    <script src="/js/Utils.js"></script>
 </head>
 
 <body>
@@ -39,16 +39,16 @@
         <canvas width="100%" height="100%"></canvas>
     </div>
     <script type="text/javascript">
-        (function (exports) {
+        (function(exports) {
             var clientrect = document.documentElement.getBoundingClientRect();
-            document.addEventListener('touchmove', function (event) {
+            document.addEventListener('touchmove', function(event) {
                 event.preventDefault();
             });
             exports.config = {
                 'width': clientrect.width,
                 'height': clientrect.height,
-                'centerX':clientrect.width/2,
-                'centerY':clientrect.height/2,
+                'centerX': clientrect.width / 2,
+                'centerY': clientrect.height / 2,
                 'args': {
                     antialias: true,
                     stencil: true
@@ -65,7 +65,7 @@
                     'x-fragment': `
                         precision mediump float;//精度限制
                         void main(){
-                            gl_FragColor = vec4(1.0,1.0,1.0,1.0);
+                            gl_FragColor = vec4(1.0,87.0/255.0,34.0/255.0,1.0/255.0);
                         }
                     `
                 }
@@ -89,80 +89,40 @@
          */
         const canvas = document.querySelector('canvas');
         let ist = true;
-        let vertexs,vertexs1;
+        let vertexs, vertexs1;
         let vertexbuffer, vertexbuffer1;
-        let indexs,indexs1;
-        let indexsbuffer,indexsbuffer1;
-        let gl, ctx,clicks, program, v3Position, vertexShader, fragmentShader;
+        let indexs, indexs1;
+        let indexsbuffer, indexsbuffer1;
+        let gl, ctx, clicks, program, v3Position, vertexShader, fragmentShader;
         canvas.setAttribute('width', config.width);
         canvas.setAttribute('height', config.height);
-        window.onload = function () {
-            canvas.addEventListener("webglcontextcreationerror", function (event) {
+        window.onload = function() {
+            canvas.addEventListener("webglcontextcreationerror", function(event) {
                 console.log(event.statusMessage || "Unknown");
             }, false);
             //获取webgl上下文
-            gl = canvas.getContext('webgl2', config.args) || canvas.getContext('webgl', config.args) || canvas.getContext('experimental-webgl', config.args);
-            gl.viewport(0, 0, config.width, config.height);
+            gl = Utils.WebGlContext(canvas, true);
             //创建gl着色器引用
-            vertexShader = gl.createShader(gl.VERTEX_SHADER);
-            fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
-            //将glsl着色器代码传入
-            gl.shaderSource(vertexShader, config.shader["x-vertex"]);
-            gl.shaderSource(fragmentShader, config.shader["x-fragment"]);
-            //编译glsl着色器代码
-            gl.compileShader(vertexShader);
-            gl.compileShader(fragmentShader);
-            //验证着glsl色器代码是否通过编译
-            if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS) && !gl.isContextLost()) {
-                console.log('无法编译顶点着色器: ' + gl.getShaderInfoLog(vertexShader));
-                gl.deleteShader(vertexShader);
-                return;
-            };
-            if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS) && !gl.isContextLost()) {
-                console.log('无法编译片源着色器: ' + gl.getShaderInfoLog(fragmentShader));
-                gl.deleteShader(fragmentShader);
-                return;
-            };
+            vertexShader = Utils.WebGLShader(gl, "x-vertex", config.shader["x-vertex"]);
+            fragmentShader = Utils.WebGLShader(gl, "x-fragment", config.shader["x-fragment"]);
             //创建一个渲染可执行程序
-            program = gl.createProgram();
-            if (!program) {
-                return;
-            };
-            //将着色器生成编译代码加入渲染可执行程序
-            gl.attachShader(program, vertexShader);
-            gl.attachShader(program, fragmentShader);
-            //将glsl语言定义的对象绑定到js定义的对象
-            //gl.bindAttribLocation(program, v3Position, "v3Position");
-            //将渲染可执行程序与显卡链接
-            gl.linkProgram(program);
+            program = Utils.WebProgram(gl, vertexShader, fragmentShader);
             //只可以链接之后读取使用 优先使用
             v3Position = gl.getAttribLocation(program, "v3Position");
-            //获取链接并且进行验证渲染可执行程序
-            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-                console.log('渲染可执行程序异常: ' + gl.getProgramInfoLog(program));
-                gl.deleteProgram(program);
-                gl.deleteShader(fragmentShader);
-                gl.deleteShader(vertexShader);
-                return;
-            };
-            //显卡使用渲染可执行程序
-            gl.useProgram(program);
             //顶点数据
             vertexs = new Float32Array([
                 // x    y     z   nx   ny   nz
-                0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
-                -1.0, -1.0, 0.0, 0.0, 0.0, 0.0,
+                0.0, 1.0, 0.0, 0.0, 0.0, 0.0, -1.0, -1.0, 0.0, 0.0, 0.0, 0.0,
                 1.0, -1.0, 0.0, 0.0, 0.0, 0.0
             ]);
             vertexs1 = new Float32Array([
                 // x    y     z   nx   ny   nz
-                -0.5 , 0.5 , 0.0 , 0.0, 0.0, 0.0,
-                 0.5 , 0.5 , 0.0 , 0.0, 0.0, 0.0,
-                 0.5 ,-0.5 , 0.0 , 0.0, 0.0, 0.0,
+                -0.5, 0.5, 0.0, 0.0, 0.0, 0.0,
+                0.5, 0.5, 0.0, 0.0, 0.0, 0.0,
+                0.5, -0.5, 0.0, 0.0, 0.0, 0.0,
 
-                -0.5 , 0.5 , 0.0 , 0.0, 0.0, 0.0,
-                -0.5 ,-0.5 , 0.0 , 0.0, 0.0, 0.0,
-                0.5 ,-0.5 , 0.0 , 0.0, 0.0, 0.0
+                -0.5, 0.5, 0.0, 0.0, 0.0, 0.0, -0.5, -0.5, 0.0, 0.0, 0.0, 0.0,
+                0.5, -0.5, 0.0, 0.0, 0.0, 0.0
             ]);
             //创建数据缓冲区
             vertexbuffer = gl.createBuffer();
@@ -192,37 +152,38 @@
             gl.clear(gl.COLOR_BUFFER_BIT);
             //清除背景指定使用哪一个缓冲区
             gl.bindBuffer(gl.ARRAY_BUFFER, vertexbuffer);
-            //启用顶点属性数组并且使用上一个状态绑定的缓冲区
-            gl.enableVertexAttribArray(v3Position);
             //顶点属性指针进行绑定
             gl.vertexAttribPointer(v3Position, 3, gl.FLOAT, false, 4 * 6, 0);
+            //启用顶点属性数组并且使用上一个状态绑定的缓冲区
+            gl.enableVertexAttribArray(v3Position);
             //开始绘制
             gl.drawArrays(gl.TRIANGLES, 0, 3);
             clicks = new Float32Array([
                 0.5, -0.5, 0.0
             ]);
+
             function drawAnimation() {
-                if(ist){//
+                if (ist) { //
                     //使用新的缓冲区进行绑定
                     gl.bindBuffer(gl.ARRAY_BUFFER, vertexbuffer1);
-                    //启用顶点属性数组并且使用上一个状态绑定的缓冲区
-                    gl.enableVertexAttribArray(v3Position);
                     //顶点属性指针进行绑定
                     gl.vertexAttribPointer(v3Position, 3, gl.FLOAT, false, 4 * 6, 0);
+                    //启用顶点属性数组并且使用上一个状态绑定的缓冲区
+                    gl.enableVertexAttribArray(v3Position);
                 };
                 ist = false;
                 //第二次只更新第三个顶点数据 2*4*6 应该是第48个字节位开始写入第三点的12个字节xyz
-                gl.bufferSubData(gl.ARRAY_BUFFER, 2*4*6, clicks);
+                gl.bufferSubData(gl.ARRAY_BUFFER, 2 * 4 * 6, clicks);
                 //第二次只更新第六个顶点数据 5*4*6 应该是第48个字节位开始写入第三点的12个字节xyz
-                gl.bufferSubData(gl.ARRAY_BUFFER, 5*4*6, clicks);
+                gl.bufferSubData(gl.ARRAY_BUFFER, 5 * 4 * 6, clicks);
                 gl.clearColor(106.0 / 255, 121.0 / 255.0, 162.0 / 255.0, 1.0);
                 gl.clear(gl.COLOR_BUFFER_BIT);
                 //开始绘制
                 gl.drawArrays(gl.TRIANGLES, 0, 6);
             }
-            canvas.addEventListener("click",function (ev) {
-                clicks[0] = (ev.offsetX - config.centerX)/config.centerX;
-                clicks[1] = (config.centerY - ev.offsetY)/config.centerY;
+            canvas.addEventListener("click", function(ev) {
+                clicks[0] = (ev.offsetX - config.centerX) / config.centerX;
+                clicks[1] = (config.centerY - ev.offsetY) / config.centerY;
                 drawAnimation();
             });
         };

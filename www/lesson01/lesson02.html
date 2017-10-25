@@ -193,10 +193,10 @@
             gl.clear(gl.COLOR_BUFFER_BIT);
             //清除背景指定使用哪一个缓冲区
             gl.bindBuffer(gl.ARRAY_BUFFER, vertexbuffer);
-            //启用顶点属性数组并且使用上一个状态绑定的缓冲区
-            gl.enableVertexAttribArray(v3Position);
             //顶点属性指针进行绑定
             gl.vertexAttribPointer(v3Position, 3, gl.FLOAT, false, 4 * 6, 0);
+            //启用顶点属性数组并且使用上一个状态绑定的缓冲区
+            gl.enableVertexAttribArray(v3Position);
             //开始绘制
             gl.drawArrays(gl.TRIANGLES, 0, 3);
             clicks = new Float32Array([
