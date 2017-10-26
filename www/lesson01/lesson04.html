@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>顶点与索引缓冲区结合使用uniform设置颜色</title>
+    <title>通过矩阵设置旋转位移等</title>
     <style type="text/css">
         * {
             margin: 0;
@@ -32,7 +32,7 @@
         }
     </style>
     <script src="../js/Utils.js"></script>
-    <script src="../js/matrix4x4.js"></script>
+    <script src="../js/gl-matrix-min.js"></script>
 </head>
 
 <body>
@@ -99,7 +99,7 @@
         let indexsbuffer1;
         let v4Color;
         let u_xformMatrix;
-        let xformMatrix = new Matrix4x4();
+        let xformMatrix = mat4.create(); //旋转矩阵
         let gl, ctx, clicks, program, v3Position, vertexShader, fragmentShader;
         canvas.setAttribute('width', config.width);
         canvas.setAttribute('height', config.height);
@@ -147,6 +147,7 @@
             //v3Position = gl.getAttribLocation(program, "v3Position");
             //获取GLSL全局变量color
             v4Color = gl.getUniformLocation(program, "color");
+            u_xformMatrix = gl.getUniformLocation(program, "u_xformMatrix");
             //获取链接并且进行验证渲染可执行程序
             if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
                 console.log('渲染可执行程序异常: ' + gl.getProgramInfoLog(program));
@@ -155,8 +156,11 @@
                 gl.deleteShader(vertexShader);
                 return;
             };
+            mat4.translate(xformMatrix, xformMatrix, new Float32Array([0.0, 0.0, 1.0]));
             //显卡使用渲染可执行程序
             gl.useProgram(program);
+            //必须可以渲染程序执行之后才可以使用
+            gl.uniformMatrix4fv(u_xformMatrix, false, xformMatrix);
             //顶点数据
             vertexs = new Float32Array([
                 // x    y     z   nx   ny   nz  r     g     b  a
@@ -217,7 +221,6 @@
 
             function drawAnimation() {
                 if (ist) { //
-                    u_xformMatrix = gl.getUniformLocation(program, "u_xformMatrix");
                     //使用新的缓冲区进行绑定
                     gl.bindBuffer(gl.ARRAY_BUFFER, vertexbuffer1);
                     //使用指定的顶点索引缓冲区
@@ -233,7 +236,7 @@
                 //第二次只更新第三个顶点数据 2*4*6 应该是第48个字节位开始写入第三点的12个字节xyz
                 //gl.bufferSubData(gl.ARRAY_BUFFER, 2 * 4 * 10, clicks);
                 //gl.uniform3f(uTranslation, tx, ty, 0);
-                gl.uniformMatrix4fv(u_xformMatrix, false, xformMatrix.elements);
+                gl.uniformMatrix4fv(u_xformMatrix, false, xformMatrix);
                 gl.clearColor(106.0 / 255, 121.0 / 255.0, 162.0 / 255.0, 1.0);
                 gl.clear(gl.COLOR_BUFFER_BIT);
                 //开始绘制 三角形 共计6个点 Uint16数据 从第一个绘制
@@ -243,7 +246,8 @@
             canvas.addEventListener("click", function(ev) {
                 let tx = (ev.offsetX - config.centerX) / config.centerX;
                 let ty = (config.centerY - ev.offsetY) / config.centerY;
-                xformMatrix.translate(tx, ty, 0);
+                mat4.identity(xformMatrix); //重置视图矩阵
+                mat4.translate(xformMatrix, xformMatrix, new Float32Array([tx, ty, 1.0]));
                 drawAnimation();
             });
         };
