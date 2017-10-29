@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>WebGL点线面</title>
+    <style type="text/css">
+        * {
+            margin: 0;
+            padding: 0;
+        }
+        
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+        }
+        
+        .panel {
+            overflow: hidden;
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 0;
+        }
+        
+        canvas {
+            position: absolute;
+        }
+    </style>
+    <script src="../js/Utils.js"></script>
+    <script src="../js/gl-matrix-min.js"></script>
+</head>
+
+<body>
+    <div class="panel">
+        <canvas></canvas>
+    </div>
+    <script type="text/javascript">
+        (function(exports) {
+            var clientrect = document.documentElement.getBoundingClientRect();
+            document.addEventListener('touchmove', function(event) {
+                event.preventDefault();
+            });
+            exports.config = {
+                'width': clientrect.width,
+                'height': clientrect.height,
+                'centerX': clientrect.width / 2,
+                'centerY': clientrect.height / 2,
+                'args': {
+                    antialias: true,
+                    stencil: true
+                },
+                'shader': {
+                    //顶点着色器代码 OpenGL ES SL 3.0规范中以前的attribute改成了in varying改成了out
+                    'x-vertex': `
+                        precision   lowp    float;
+                        uniform mat4 p_matrix;//正交投影矩阵
+                        uniform float u_sep;
+                        attribute vec3 v3position;//属性变量
+                        void main(){
+                            gl_Position = p_matrix * vec4(v3position.x + u_sep,v3position.y,v3position.z,1.0);
+                        }
+                    `,
+                    //片段着色器
+                    'x-fragment': `
+                        precision lowp float;//精度限制
+                        uniform   vec4 color;//全局变量
+                        void main(){
+                            gl_FragColor = color;
+                        }
+                    `
+                }
+            };
+        })(typeof exports === 'object' ? exports : window);
+    </script>
+    <script type="text/javascript">
+        /**
+         * 正交投影将 3D坐标系转为开始使用第四象限区坐标
+         * 使用正交投影矩形后不需要使用3D坐标系的比例换算直接使用像素点了
+         * */
+        const canvas = document.querySelector('canvas');
+        let sep = 0;
+        //创建一个正交投影矩阵一个长方体
+        let u_sep;//进行位移计算
+        let drawMode;//绘制TRIANGLE_FAN  三角带绘制圆
+        let projectMat = mat4.ortho(mat4.create(),0,config.width,config.height,0,-1000,1000);
+        let gl, program, v3position, vertexShader, fragmentShader;
+        let vertex,vertexBuffer,index,indexBuffer,v4Color;
+
+        function drawCircle() {
+            let radius = 100;//半径100
+            let centerX = 200;//圆心坐标X
+            let centerY = 200;//圆心坐标Y
+            //顶点数据 三角带绘制圆 需要圆心点 和360 个点 三角带 使用相近的点
+            vertex = new Float32Array(362*3);
+            index = new Uint16Array(362);//索引只能是正整数
+            vertex[0] = centerX;
+            vertex[1] = centerY;
+            vertex[2] = 0;
+            index[0] = 0;
+            for (var i=1;i<362;i++){
+                vertex[i * 3 + 0] = radius * Math.cos(Math.PI/180 * i) + centerX;
+                vertex[i * 3 + 1] = radius * Math.sin(Math.PI/180 * i) + centerY;
+                vertex[i * 3 + 2] = 0;
+                index[i] = i;
+            };
+        };
+        function  init() {
+            canvas.setAttribute('width', config.width);
+            canvas.setAttribute('height', config.height);
+            gl = Utils.WebGlContext(canvas);
+            drawMode = gl.TRIANGLE_FAN;//gl.TRIANGLE_FAN gl.LINE_STRIP;//绘制TRIANGLE_FAN  三角带绘制圆
+            //创建顶点着色器
+            vertexShader = Utils.WebGLShader(gl,'x-vertex',config.shader['x-vertex']);
+            //创建片源着色器
+            fragmentShader = Utils.WebGLShader(gl,'x-fragment',config.shader['x-fragment']);
+            //创建渲染可执行程序
+            program = Utils.WebProgram(gl,vertexShader,fragmentShader);
+            //将glsl语言定义的对象绑定到js定义的对象 大量数据推荐使用
+            gl.bindAttribLocation(program, v3position, "v3position");
+            //获取GLSL全局变量color
+            u_sep = gl.getUniformLocation(program, "u_sep");
+            v4Color = gl.getUniformLocation(program, "color");
+            p_matrix = gl.getUniformLocation(program, "p_matrix");
+            //设置正交矩形
+            gl.uniformMatrix4fv(p_matrix, false, projectMat);
+            gl.uniform1f(u_sep,sep);
+            //顶点数据
+            vertex = new Float32Array([
+                // x    y     z
+                100.0, 100.0, 0.0,
+                200.0,100.0, 0.0,
+                200.0, 200.0, 0.0,
+                100.0, 200, 0.0
+            ]);
+            index = new Uint16Array([//绘制线
+                0, 1, 2,0,
+                0, 2, 3,0
+            ]);
+            if(drawMode == gl.TRIANGLE_FAN){
+                drawCircle();
+            };
+            //创建顶点数据缓冲区
+            vertexBuffer = gl.createBuffer();
+            /**
+             * 将创建的缓冲区设置为顶点缓冲区
+             * webgl. ARRAY_BUFFER  表示缓冲区对象中包含了顶点的数据。
+             * webgl.ELEMENT_ARRAY_BUFFER 表示缓冲区包含了顶点的索引值。
+             */
+            gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+            /**
+             * 创建指定大小显卡缓冲区 ps STATIC_DRAW 告诉显卡为静态数据不修改
+             * webgl.STATIC_DRAW 向缓冲区中写入一次数据， 但需要绘制很多次
+             * webgl.STREAM_DRAW 写入一次数据，绘制若干次
+             * webgl.DYNAMIC_DRAW  向缓冲区中多次写入数据， 绘制多次
+             */
+            gl.bufferData(gl.ARRAY_BUFFER, vertex, gl.DYNAMIC_DRAW);
+            //创建顶点的索引缓冲区
+            indexBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, index, gl.STATIC_DRAW);
+            //启用顶点属性数组并且使用上一个状态绑定的缓冲区
+            gl.enableVertexAttribArray(v3position);
+            //顶点属性指针进行绑定
+            gl.vertexAttribPointer(v3position, 3, gl.FLOAT, false, 4 * 3, 0);
+            //传递颜色值
+            gl.uniform4f(v4Color, Math.random(), Math.random(), Math.random(), 1.0);
+        };
+        function  renderScene() {
+            sep+=4;
+            gl.uniform1f(u_sep,sep);
+            //绘制背景颜色
+            gl.clearColor(106.0 / 255, 121.0 / 255.0, 162.0 / 255.0, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            //开始绘制 绘制线 使用开启顶点索引绘制 drawArrays 不需要索引进行绘制
+            gl.drawElements(drawMode, index.length, gl.UNSIGNED_SHORT, 0);
+            //gl.drawArrays(drawMode, 0, 362);
+        }
+        function tick() {
+            if(sep<config.width){
+                renderScene();
+                //window.requestAnimationFrame(tick);
+            }else{
+                console.log("结束渲染");
+            };
+        }
+        function webGlStart() {
+            init();
+            tick();
+        }
+        webGlStart();
+    </script>
+</body>
+
+</html>

@@ -225,8 +225,8 @@
                     gl.bindBuffer(gl.ARRAY_BUFFER, vertexbuffer1);
                     //使用指定的顶点索引缓冲区
                     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexsbuffer1);
-                    //启用顶点属性数组并且使用上一个状态绑定的缓冲区
-                    gl.enableVertexAttribArray(v3Position);
+                    //启用顶点属性数组并且使用上一个状态绑定的缓冲区 备注启用一次之后可以不再启用而是直接更新数据
+                    //gl.enableVertexAttribArray(v3Position);
                     //顶点属性指针进行绑定
                     gl.vertexAttribPointer(v3Position, 3, gl.FLOAT, false, 4 * 10, 0);
                     //启用顶点属性数组并且使用上一个状态绑定的颜色缓冲区

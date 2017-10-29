@@ -21,7 +21,7 @@ Utils.IsTouch = "ontouchend" in document ? true : false;
  * @param  {[type]} progress [description]
  * @return {[type]}          [description]
  */
-Utils.QueueImg = (urls, complete, progress) => {
+Utils.QueueImg = function (urls, complete, progress) {
     let key, url, index = arguments[3] || 0;
     let data = urls[index];
     let img = new Image();
@@ -132,52 +132,6 @@ Utils.WebProgram = (gl, vertexshader, fragmentshader) => {
     //开始运行program
     gl.useProgram(program);
     return program;
-};
-/**
- * 缓冲区设置顶点着色器数据
- * @param {webgl} gl   canvas的webgl持有对象
- * @param {program} program   渲染着色器持有对象
- * @param {Float32Array} vertices Float32Array 的顶点数据
- * @param {int} size 顶点数据分量值 2 为x y 3 为x y z
- * @param {string} name 顶点着色器变量名称
- * @return {int} n  成功返回 渲染点的数量 失败返回 0
- */
-Utils.InitVertexBuffers = (gl, program, vertices, size, name) => {
-    var n, fsize, position, vertexbuffer;
-    if (!(gl && vertices.length > 0 && size && name)) {
-        console.log("传入参数错误");
-        return 0;
-    };
-    fsize = vertices.BYTES_PER_ELEMENT;
-    n = vertices.length / size;
-    //创建一个gl的缓冲区对象
-    vertexbuffer = gl.createBuffer();
-    if (!vertexbuffer) {
-        console.log("创建缓冲区对象失败");
-        return 0;
-    };
-    //将缓冲区对象绑定到gl
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexbuffer);
-    //创建一个缓冲区并且将数据写入
-    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-    /**
-        //创建一个指定内存大小的缓冲区 只有大小没有数据
-        gl.bufferData(gl.ARRAY_BUFFER, fsize * vertices.length, gl.STATIC_DRAW);
-        //更新指定区域数据 更新数据类型   更新偏移位置 数据
-        gl.bufferSubData(gl.ARRAY_BUFFER, 0, vertices);
-    */
-    //获取顶点着色器变量
-    position = this.GetGpuLocation(gl, program, name);
-    if (position < 0) {
-        gl.deleteBuffer(vertexbuffer);
-        console.log("获取WebGl顶点变量" + name + "失败");
-        return 0;
-    };
-    //将缓冲区对象分配给着色器变量
-    gl.vertexAttribPointer(position, size, gl.FLOAT, false, fsize * size, 0);
-    //将顶点变量与分配的缓冲区对象连接起来
-    gl.enableVertexAttribArray(position);
-    return n;
 };
 /**
  * @param  {} gl webgl canvas的webgl持有对象
