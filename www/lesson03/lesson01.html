@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>WebGL纹理</title>
+    <title>WebGL三维世界</title>
     <style type="text/css">
         * {
             margin: 0;
@@ -59,22 +59,25 @@
                     'x-vertex': `
                         precision   lowp    float;
                         uniform mat4 p_matrix;//正交投影矩阵
-                        uniform float u_sep;
                         attribute vec3 v3position;//属性变量
                         attribute vec2 i_uv;//输入纹理的UV坐标
                         varying   vec2 out_uv;//输出给片段着色器
                         void main(){
                             out_uv = i_uv;
-                            gl_Position = p_matrix * vec4(v3position.x + u_sep,v3position.y,v3position.z,1.0);
+                            gl_Position = p_matrix * vec4(v3position,1.0);
                         }
                     `,
                     //片段着色器
                     'x-fragment': `
                         precision lowp float;//精度限制
                         uniform   sampler2D texture;//纹理对象
+                        uniform   sampler2D texture1;//纹理对象
                         varying   vec2 out_uv;//输出给片段着色器
+                        uniform float u_sep;//实现纹理运动
                         void main(){
-                            gl_FragColor = texture2D(texture,out_uv);
+                            vec4  color0 = texture2D(texture,out_uv);
+                            vec4  color1 = texture2D(texture1,vec2(out_uv.s + u_sep,out_uv.t));
+                            gl_FragColor = color0 + color1;
                         }
                     `
                 }
@@ -83,17 +86,25 @@
     </script>
     <script type="text/javascript">
         /**
-         * 正交投影将 3D坐标系转为开始使用第四象限区坐标
-         * 使用正交投影矩形后不需要使用3D坐标系的比例换算直接使用像素点了
+         * 使用无缝图利用纹理镜像填充的方式实现云飘动动画
+         *
          * */
         const canvas = document.querySelector('canvas');
         let sep = 0;
         //创建一个正交投影矩阵一个长方体
         let u_sep;//进行位移计算
-        let projectMat = mat4.ortho(mat4.create(),0,config.width,config.height,0,-1000,1000);
+        //二维正交投影
+        //let projectMat = mat4.ortho(mat4.create(),0,config.width,config.height,0, -1.0, 1.0);
+        //三维正交投影矩阵
+        let projectMat = mat4.perspective(mat4.create(),45,config.width/config.height,0.1,100);
         let gl, program,i_uv, v3position, vertexShader, fragmentShader;
-        let vertex,vertexBuffer,index,indexBuffer,texture;
-        let bitmap,imgs = [{'1.png':'./imgs/1.png'}];
+        let vertex,vertexBuffer,index,indexBuffer,texture,texture1;
+        let bitmap,imgs = [{'1.png':'./imgs/1.png'},{'fog.png':'./imgs/fog.png'}];
+        let rPyramid = 0;
+        let mvp         =   mat4.create();
+        let matTrans    =   mat4.create();
+        let matRot      =   mat4.create();
+        let matModel    =   mat4.create();
         //使用纹理
         function LoadedTexture(image) {
             //创建纹理
@@ -102,14 +113,20 @@
             gl.bindTexture(gl.TEXTURE_2D,texture);//将纹理进行绑定
             //将纹理图片反转
             //gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
-            //纹理进行图片采集
+            //纹理进行图片采集 使用等级0 目标与结构均为RGBA 数据大小0-255 颜色值
             gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,texture.image);
-            //纹理放大算法
+            //纹理放大使用gl.NEAREST 最近采样算法 gl.LINEAR 线性采样算法 效果好效率低
             gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
             //纹理缩小算法
             gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
-            gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+            /**
+             * 纹理进出包装 超出UV采集 例如最大S为1 如果设置2 进行图片补全
+             * REPEAT 使用纹理重复填充
+             * CLAMP_TO_EDGE 边缘点进行填充
+             * MIRRORED_REPEAT 镜像平铺填充
+             **/
+            gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);
+            gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT);
             //绑定一个空纹理
             gl.bindTexture(gl.TEXTURE_2D,null);
             return texture;
@@ -130,17 +147,61 @@
             //获取GLSL全局变量color
             u_sep = gl.getUniformLocation(program, "u_sep");
             texture = gl.getUniformLocation(program, "texture");
+            texture1 = gl.getUniformLocation(program,"texture1");
             p_matrix = gl.getUniformLocation(program, "p_matrix");
             //设置正交矩形
             gl.uniformMatrix4fv(p_matrix, false, projectMat);
             gl.uniform1f(u_sep,sep);
             //顶点数据
             vertex = new Float32Array([
-                // x    y     z    s  t
-                100.0, 100.0, 0.0, 0.0 ,0.0,
-                400.0,100.0, 0.0,  1.0,0.0,
-                400.0, 400.0, 0.0, 1.0,1.0,
-                100.0, 400, 0.0,   0.0,1.0
+                  //x     y     z     u    v      r    g    b    a
+                    -1.0 ,-1.0 , 1.0 ,  0.0 ,0.0 ,  1.0 ,1.0 ,1.0 ,1.0 ,
+                    1.0 ,-1.0 , 1.0 ,  1.0 ,0.0 ,  1.0 ,1.0 ,1.0 ,1.0 ,
+                    1.0 , 1.0 , 1.0 ,  1.0 ,1.0 ,  1.0 ,1.0 ,1.0 ,1.0 ,
+
+                    -1.0 ,-1.0 , 1.0 ,  0.0 ,0.0 ,  1.0 ,1.0 ,1.0 ,1.0 ,
+                    1.0 , 1.0 , 1.0 ,  1.0 ,1.0 ,  1.0 ,1.0 ,1.0 ,1.0 ,
+                    -1.0 , 1.0 , 1.0 ,  0.0 ,1.0 ,  1.0 ,1.0 ,1.0 ,1.0 ,
+
+                    -1.0 ,-1.0 ,-1.0 ,  1.0 ,0.0 ,  1.0 ,0.0 ,0.0 ,1.0 ,
+                    -1.0 , 1.0 ,-1.0 ,  1.0 ,1.0 ,  1.0 ,0.0 ,0.0 ,1.0 ,
+                    1.0 , 1.0 ,-1.0 ,  0.0 ,1.0 ,  1.0 ,0.0 ,0.0 ,1.0 ,
+
+                    -1.0 ,-1.0 ,-1.0 ,  1.0 ,0.0 ,  1.0 ,0.0 ,0.0 ,1.0 ,
+                    1.0 , 1.0 ,-1.0 ,  0.0 ,1.0 ,  1.0 ,0.0 ,0.0 ,1.0 ,
+                    1.0 ,-1.0 ,-1.0 ,  0.0 ,0.0 ,  1.0 ,0.0 ,0.0 ,1.0 ,
+
+                    -1.0 , 1.0 ,-1.0 ,  0.0 ,1.0 ,  0.0 ,1.0 ,0.0 ,1.0 ,
+                    -1.0 , 1.0 , 1.0 ,  0.0 ,0.0 ,  0.0 ,1.0 ,0.0 ,1.0 ,
+                    1.0 , 1.0 , 1.0 ,  1.0 ,0.0 ,  0.0 ,1.0 ,0.0 ,1.0 ,
+
+                    -1.0 , 1.0 ,-1.0 ,  0.0 ,1.0 ,  0.0 ,1.0 ,0.0 ,1.0 ,
+                    1.0 , 1.0 , 1.0 ,  1.0 ,0.0 ,  0.0 ,1.0 ,0.0 ,1.0 ,
+                    1.0 , 1.0 ,-1.0 ,  1.0 ,1.0 ,  0.0 ,1.0 ,0.0 ,1.0 ,
+
+                    -1.0 ,-1.0 ,-1.0 ,  1.0 ,1.0 ,  0.0 ,0.0 ,1.0 ,1.0 ,
+                    1.0 ,-1.0 ,-1.0 ,  0.0 ,1.0 ,  0.0 ,0.0 ,1.0 ,1.0 ,
+                    1.0 ,-1.0 , 1.0 ,  0.0 ,0.0 ,  0.0 ,0.0 ,1.0 ,1.0 ,
+
+                    -1.0 ,-1.0 ,-1.0 ,  1.0 ,1.0 ,  0.0 ,0.0 ,1.0 ,1.0 ,
+                    1.0 ,-1.0 , 1.0 ,  0.0 ,0.0 ,  0.0 ,0.0 ,1.0 ,1.0 ,
+                    -1.0 ,-1.0 , 1.0 ,  1.0 ,0.0 ,  0.0 ,0.0 ,1.0 ,1.0 ,
+
+                    1.0 ,-1.0 ,-1.0 ,  1.0 ,0.0 ,  1.0 ,1.0 ,0.0 ,1.0 ,
+                    1.0 , 1.0 ,-1.0 ,  1.0 ,1.0 ,  1.0 ,1.0 ,0.0 ,1.0 ,
+                    1.0 , 1.0 , 1.0 ,  0.0 ,1.0 ,  1.0 ,1.0 ,0.0 ,1.0 ,
+
+                    1.0 ,-1.0 ,-1.0 ,  1.0 ,0.0 ,  1.0 ,1.0 ,0.0 ,1.0 ,
+                    1.0 , 1.0 , 1.0 ,  0.0 ,1.0 ,  1.0 ,1.0 ,0.0 ,1.0 ,
+                    1.0 ,-1.0 , 1.0 ,  0.0 ,0.0 ,  1.0 ,1.0 ,0.0 ,1.0 ,
+
+                    -1.0 ,-1.0 ,-1.0 ,  0.0 ,0.0 ,  0.0 ,1.0 ,1.0 ,1.0 ,
+                    -1.0 ,-1.0 , 1.0 ,  1.0 ,0.0 ,  0.0 ,1.0 ,1.0 ,1.0 ,
+                    -1.0 , 1.0 , 1.0 ,  1.0 ,1.0 ,  0.0 ,1.0 ,1.0 ,1.0 ,
+
+                    -1.0 ,-1.0 ,-1.0 ,  0.0 ,0.0 ,  0.0 ,1.0 ,1.0 ,1.0 ,
+                    -1.0 , 1.0 , 1.0 ,  1.0 ,1.0 ,  0.0 ,1.0 ,1.0 ,1.0 ,
+                    -1.0 , 1.0 ,-1.0 ,  0.0 ,1.0 ,  0.0 ,1.0 ,1.0 ,1.0
             ]);
             index = new Uint16Array([//绘制线
                 0, 1, 2,
@@ -168,10 +229,10 @@
             //启用顶点属性数组并且使用上一个状态绑定的缓冲区
             gl.enableVertexAttribArray(v3position);
             //顶点属性指针进行绑定
-            gl.vertexAttribPointer(v3position, 3, gl.FLOAT, false, 4 * 5, 0);
+            gl.vertexAttribPointer(v3position, 3, gl.FLOAT, false, 4 * 9, 0);
             gl.enableVertexAttribArray(i_uv);
             //给UV坐标赋值
-            gl.vertexAttribPointer(i_uv, 2, gl.FLOAT, false, 4 * 5, 3 * 4);
+            gl.vertexAttribPointer(i_uv, 2, gl.FLOAT, false, 4 * 9, 3 * 4);
             //传递纹理
             //激活纹理第0号
             gl.activeTexture(gl.TEXTURE0);
@@ -179,19 +240,43 @@
             gl.bindTexture(gl.TEXTURE_2D,LoadedTexture(bitmap["1.png"]));
             //设置纹理
             gl.uniform1i(texture,0);
+            //激活纹理第1号
+            gl.activeTexture(gl.TEXTURE1);
+            //绑定纹理
+            gl.bindTexture(gl.TEXTURE_2D,LoadedTexture(bitmap["fog.png"]));
+            //设置纹理
+            gl.uniform1i(texture1,1);
+        };
+        function degToRad(degrees) {
+            return degrees * Math.PI / 180;
         };
         function  renderScene() {
-            sep+=4;
+            mat4.identity(matTrans);
+            mat4.identity(matRot);
+            mat4.identity(matModel);
+            rPyramid += 1;
+            //位移矩阵
+            mat4.translate(matTrans,matTrans, [0.0, 0.0, -4.0]);
+            //对角线轴旋转矩阵 x y z
+             mat4.rotate(matRot,matRot, degToRad(rPyramid), [1.0, 1.0, 1.0]);
+            //合并位移与旋转生成模型矩阵
+            mat4.multiply(matModel,matTrans, matRot);
+            //将模型矩阵与透视矩阵合并生成新的矩阵
+            mat4.multiply(mvp,projectMat, matModel);
+            sep+=0.01;
+            //设置三维投影矩形
+            gl.uniformMatrix4fv(p_matrix, false, mvp);
             gl.uniform1f(u_sep,sep);
             //绘制背景颜色
             gl.clearColor(106.0 / 255, 121.0 / 255.0, 162.0 / 255.0, 1.0);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
             gl.enable(gl.DEPTH_TEST);
             //开始绘制 绘制线 使用开启顶点索引绘制 drawArrays 不需要索引进行绘制
-            gl.drawElements(gl.TRIANGLES, index.length, gl.UNSIGNED_SHORT, 0);
+            //gl.drawElements(gl.TRIANGLES, index.length, gl.UNSIGNED_SHORT, 0);
+            gl.drawArrays(gl.TRIANGLES, 0, 36);
         }
         function tick() {
-            if(sep<config.width){
+            if(sep<300){
                 renderScene();
                 window.requestAnimationFrame(tick);
             }else{
