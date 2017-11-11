@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>WebGL三维世界</title>
+    <title>按F,N键切换物理与实现滤波显示</title>
     <style type="text/css">
         * {
             margin: 0;
@@ -75,10 +75,15 @@
                         uniform   sampler2D texture1;//纹理对象
                         varying   vec2 out_uv;//输出给片段着色器
                         uniform float u_sep;//实现纹理运动
+                        uniform int overlay;//是否使用叠加纹理
                         void main(){
                             vec4  color0 = texture2D(texture,out_uv);
                             vec4  color1 = texture2D(texture1,vec2(out_uv.s + u_sep,out_uv.t));
-                            gl_FragColor = color0 + color1;
+                            if(overlay>0){//修改纹理之后不在设置纹理叠加实现浮云效果
+                             gl_FragColor = color0;
+                            }else{
+                                gl_FragColor = color0 + color1;
+                            };
                         }
                     `
                 }
@@ -87,8 +92,12 @@
     </script>
     <script type="text/javascript">
         /**
-         * 使用无缝图利用纹理镜像填充的方式实现云飘动动画
-         *
+         * 按下键盘F或者N键实现纹理切换并且可以看见纹理滤波采集模型的修改
+         * 切换使用盒子贴图test.gif
+         * F键使用 gl.LINEAR 线性采样算法 效果好效率低
+         * N键使用 gl.NEAREST 最近采样算法 效果减低效率高
+         * 上下箭头控制Z轴远近缩放
+         * 左右箭头控制X或者Y位移
          * */
         const canvas = document.querySelector('canvas');
         let sep = 0;
@@ -97,15 +106,22 @@
         //二维正交投影
         //let projectMat = mat4.ortho(mat4.create(),0,config.width,config.height,0, -1.0, 1.0);
         //三维透视投影矩阵
-        let projectMat = mat4.perspective(mat4.create(),45,config.width/config.height,0.1,100);
+        let projectMat = mat4.perspective(mat4.create(),45,config.width/config.height,1,100);
         let gl, program,i_uv, v3position, vertexShader, fragmentShader;
-        let vertex,vertexBuffer,index,indexBuffer,texture,texture1;
-        let bitmap,imgs = [{'1.png':'./imgs/1.png'},{'fog.png':'./imgs/fog.png'}];
-        let rPyramid = 0;
+        let vertex,vertexBuffer,index,indexBuffer,texture,texture1,textureHandle;
+        let overlay;
+        let bitmap,imgs = [{'1.png':'./imgs/1.png'},{'fog.png':'./imgs/fog.png'},{'test.gif':'./imgs/test.gif'}];
+        let TransZ = -4;
+        let TransX = 0;
+        let Rot = 0;
+        let Scale = 1;
+        let rPyramid =0;
         let mvp         =   mat4.create();
         let matTrans    =   mat4.create();
         let matRot      =   mat4.create();
+        let matScale    =   mat4.create();
         let matModel    =   mat4.create();
+        let matAll      =   mat4.create();
         //使用纹理
         function LoadedTexture(image) {
             //创建纹理
@@ -150,9 +166,11 @@
             texture = gl.getUniformLocation(program, "texture");
             texture1 = gl.getUniformLocation(program,"texture1");
             p_matrix = gl.getUniformLocation(program, "p_matrix");
+            overlay = gl.getUniformLocation(program,"overlay");
             //设置正交矩形
             gl.uniformMatrix4fv(p_matrix, false, projectMat);
             gl.uniform1f(u_sep,sep);
+            gl.uniform1i(overlay,0);
             //顶点数据
             vertex = new Float32Array([
                 //x    y    z    u   v
@@ -225,6 +243,7 @@
             //传递纹理
             //激活纹理第0号
             gl.activeTexture(gl.TEXTURE0);
+            textureHandle = LoadedTexture(bitmap["test.gif"]);
             //绑定纹理
             gl.bindTexture(gl.TEXTURE_2D,LoadedTexture(bitmap["1.png"]));
             //设置纹理
@@ -240,16 +259,23 @@
             return degrees * Math.PI / 180;
         };
         function  renderScene() {
+            mat4.identity(mvp);
             mat4.identity(matTrans);
+            mat4.identity(matScale);
             mat4.identity(matRot);
             mat4.identity(matModel);
-            rPyramid += 1;
-            //位移矩阵
-            mat4.translate(matTrans,matTrans, [0.0, 0.0, -4.0]);
+            mat4.identity(matAll);
+            rPyramid += Rot;
+            //位移矩阵rrrrrr
+            mat4.translate(matTrans,matTrans, [TransX, 0.0, TransZ]);
             //对角线轴旋转矩阵 x y z
              mat4.rotate(matRot,matRot, degToRad(rPyramid), [1.0, 1.0, 1.0]);
             //合并位移与旋转生成模型矩阵
             mat4.multiply(matModel,matTrans, matRot);
+            //缩放控制
+            mat4.scale(matRot,matRot,[Scale,1,1]);
+            //合并位移与旋转生成模型矩阵
+            mat4.multiply(matAll,matModel, matRot);
             //将模型矩阵与透视矩阵合并生成新的矩阵
             mat4.multiply(mvp,projectMat, matModel);
             sep+=0.01;
@@ -271,11 +297,84 @@
             }else{
                 console.log("结束渲染");
             };
-        }
+        };
+        function HandleKeyDown(ev) {
+            //String.fromCharCode(ev.keyCode) 转字符串
+            switch (ev.keyCode){
+                case 87://W键
+                    TransZ-=0.3;
+                    break;
+                case 83://s键
+                    TransZ+=0.3;
+                    break;
+                case 65://A键
+                    TransX-=1;
+                    break;
+                case 68://D键
+                    TransX+=1;
+                    break;
+                case 82://R键
+                    Rot+=1;
+                    break;
+                case 90://Z键
+                    Scale+=0.1;
+                    break;
+                case 88://X键
+                    Scale-=0.1;
+                    break;
+                case 70://F键
+                    gl.uniform1i(overlay,1);//关闭纹理叠加实现浮云效果
+                    /**
+                     * 因为webgl属于状态机 如果不指定使用修改第几号纹理
+                     * 回默认修改最后绑定使用的哪一个
+                     */
+                    gl.activeTexture(gl.TEXTURE0);//开启0号纹理
+                    gl.bindTexture(gl.TEXTURE_2D,textureHandle);//将纹理进行绑定
+                    //纹理放大使用gl.NEAREST 最近采样算法 gl.LINEAR 线性采样算法 效果好效率低
+                    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+                    //纹理缩小算法
+                    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+                    break;
+                case 78://N键
+                    gl.uniform1i(overlay,1);//关闭纹理叠加实现浮云效果
+                    /**
+                     * 因为webgl属于状态机 如果不指定使用修改第几号纹理
+                     * 回默认修改最后绑定使用的哪一个
+                     */
+                    gl.activeTexture(gl.TEXTURE0);//开启0号纹理
+                    gl.bindTexture(gl.TEXTURE_2D,textureHandle);//将纹理进行绑定
+                    //纹理放大使用gl.NEAREST 最近采样算法 gl.LINEAR 线性采样算法 效果好效率低
+                    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+                    //纹理缩小算法
+                    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+                    break;
+                case 77://M键
+                    gl.uniform1i(overlay,1);//关闭纹理叠加实现浮云效果
+                    /**
+                     * 因为webgl属于状态机 如果不指定使用修改第几号纹理
+                     * 回默认修改最后绑定使用的哪一个
+                     */
+                    gl.activeTexture(gl.TEXTURE0);//开启0号纹理
+                    gl.bindTexture(gl.TEXTURE_2D,textureHandle);//将纹理进行绑定
+                    //纹理放大使用gl.NEAREST 最近采样算法 gl.LINEAR 线性采样算法 效果好效率低
+                    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+                    //纹理缩小算法
+                    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_NEAREST);
+                    break
+                default:
+            };
+        };
+        function HandleKeyUp(ev) {
+           // Rot = 0;
+        };
         function webGlStart(data) {
+            document.addEventListener("keydown",HandleKeyDown);
+            document.addEventListener("keyup",HandleKeyUp);
             bitmap = data;
             init();
             tick();
+            //支持纹理格式
+            console.log(gl.getSupportedExtensions());
         }
         Utils.QueueImg(imgs,webGlStart);
     </script>
