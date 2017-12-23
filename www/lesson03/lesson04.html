@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>按F,N键切换物理与实现滤波显示</title>
+    <style type="text/css">
+        * {
+            margin: 0;
+            padding: 0;
+        }
+        
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            background-color: rgba(148, 148, 148, 0.82);
+        }
+        
+        .panel {
+            overflow: hidden;
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 0;
+        }
+        
+        canvas {
+            position: absolute;
+        }
+        .box{
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: red;
+            opacity: 0.5;
+        }
+    </style>
+    <script src="../js/Utils.js"></script>
+    <script src="../js/gl-matrix-min.js"></script>
+</head>
+
+<body>
+    <div class="panel">
+        <canvas></canvas>
+    </div>
+    <script type="text/javascript">
+        (function(exports) {
+            var clientrect = document.documentElement.getBoundingClientRect();
+            document.addEventListener('touchmove', function(event) {
+                event.preventDefault();
+            });
+
+            var latitudeBands = 80;//纬度带
+             var longitudeBands = 80;//经度带
+             var positions = [];//存储x，y，z坐标
+             var indices = [];//三角形列表（索引值）
+
+             for(var latNum = 0; latNum <= latitudeBands; latNum++){
+                 var lat = latNum * Math.PI / latitudeBands - Math.PI / 2;//纬度范围从-π/2到π/2
+                 var sinLat = Math.sin(lat);
+                 var cosLat = Math.cos(lat);
+
+                 for(var longNum = 0; longNum <= longitudeBands; longNum++){
+                     var lon = longNum * 2 * Math.PI / longitudeBands - Math.PI;//经度范围从-π到π
+                     var sinLon = Math.sin(lon);
+                     var cosLon = Math.cos(lon);
+
+                     var x = cosLat * cosLon;
+                     var y = cosLat * sinLon;
+                     var z = sinLat;
+                     var u = (longNum / longitudeBands);
+                     var v = (latNum / latitudeBands);
+
+                     positions.push(x);
+                     positions.push(y);
+                     positions.push(z);
+                     positions.push(u);
+                     positions.push(v);
+                 }
+             }
+             for(var latNum = 0; latNum < latitudeBands; latNum++){
+                 for(var longNum = 0; longNum < longitudeBands; longNum++){
+                     var first = latNum * (longitudeBands + 1) + longNum;
+                     var second = first + longitudeBands + 1;
+
+                     indices.push(first);
+                     indices.push(first + 1);
+                     indices.push(second);
+
+                     indices.push(second);
+                     indices.push(second + 1);
+                     indices.push(first + 1);
+                 }
+             }
+console.log(indices.length);
+            exports.config = {
+                'indices': new Uint16Array(indices),
+                'vertices': new Float32Array(positions),
+                'width': 400,
+                'height': 400,
+                'shader': {
+                    //顶点着色器代码 OpenGL ES SL 3.0规范中以前的attribute改成了in varying改成了out
+                    'x-vertex': `
+                        uniform mat4 p_matrix;//正交投影矩阵
+                        attribute vec3 v3position;//属性变量
+                        attribute vec2 iuv;//输入纹理的UV坐标
+                        varying   vec2 ouv;//输出给片段着色器
+                        void main(){
+                            ouv = iuv;
+                            gl_Position = p_matrix * vec4(v3position,1.0);
+                        }
+                    `,
+                    //片段着色器
+                    'x-fragment': `
+                        #ifdef GL_ES
+                        precision mediump float;//精度限制
+                        #endif
+                        uniform   sampler2D bitmap;//纹理对象
+                        varying   vec2 ouv;//输出给片段着色器
+                        void main(){
+                            gl_FragColor = texture2D(bitmap,ouv);
+                        }
+                    `
+                }
+            };
+        })(typeof exports === 'object' ? exports : window);
+    </script>
+    <script type="text/javascript">
+        Utils.QueueImg([{'3d.png':'./imgs/3d.png'}],function (bitmap) {
+            const canvas = document.querySelector('canvas');
+            canvas.setAttribute('width', config.width);
+            canvas.setAttribute('height', config.height);
+            const gl = Utils.WebGlContext(canvas);
+            //创建顶点着色器
+            const vertexShader = Utils.WebGLShader(gl,'x-vertex',config.shader['x-vertex']);
+            //创建片源着色器
+            const fragmentShader = Utils.WebGLShader(gl,'x-fragment',config.shader['x-fragment']);
+            //创建渲染可执行程序
+            const program = Utils.WebProgram(gl,vertexShader,fragmentShader);
+            const iuv = Utils.GetGpuLocation(gl, program, 'iuv');
+            const p_matrix = Utils.GetGpuLocation(gl, program, 'p_matrix',true);
+            const v3position = Utils.GetGpuLocation(gl, program, 'v3position');
+            let vmx = mat4.create(); //视图矩阵
+            let mmx = mat4.create(); //模型矩阵
+            let pmx = mat4.create(); //投影矩阵
+            let mvp = mat4.create(); //投影矩阵
+            let ry = 0;
+            let rx = 1.5707963267948966;
+            //创建顶点数据缓冲区
+            let buffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+            gl.bufferData(gl.ARRAY_BUFFER, config.vertices, gl.STATIC_DRAW);
+            //顶点属性指针进行绑定
+            gl.vertexAttribPointer(v3position, 3, gl.FLOAT, false, 4 * 5, 0);
+            //启用顶点属性数组并且使用上一个状态绑定的缓冲区
+            gl.enableVertexAttribArray(v3position);
+            //创建顶点的索引缓冲区
+            buffer = gl.createBuffer();
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer);
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, config.indices, gl.STATIC_DRAW);
+            //给UV坐标赋值
+            gl.vertexAttribPointer(iuv, 2, gl.FLOAT, false, 4 * 5, 3 * 4);
+            gl.enableVertexAttribArray(iuv);
+
+            //开启0号纹理单元
+            let texture = gl.createTexture();
+            gl.activeTexture(gl.TEXTURE0);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+            gl.bindTexture(gl.TEXTURE_2D,texture);//将纹理进行绑定
+            //配置纹理参数
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            //将img绑定到纹理
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bitmap['3d.png']);
+            //将0号纹理传递给着色器
+            gl.uniform1i(gl.getUniformLocation(program, "bitmap"),0);
+            function degToRad(degrees) {
+                return degrees * Math.PI / 180;
+            };
+            let rPyramid =0;
+            mat4.lookAt(vmx, new Float32Array([0, 0, 1]), new Float32Array([0, 0, 0]), new Float32Array([0, 1, 0]));
+            function tick() {
+                mat4.identity(mvp);
+                mat4.identity(mmx);
+                rPyramid+=1;
+                mat4.rotateY(mmx, mmx, degToRad(rPyramid));
+                mat4.rotateX(mmx, mmx, degToRad(-90));
+                mat4.multiply(mvp,vmx, mmx);
+                gl.uniformMatrix4fv(p_matrix, false, mvp);
+                //开始绘制 绘制线 使用开启顶点索引绘制 drawArrays 不需要索引进行绘制
+                gl.drawElements(gl.TRIANGLES, config.indices.length, gl.UNSIGNED_SHORT, 0);
+                gl.flush();
+                window.requestAnimationFrame(tick);
+            };
+            tick();
+        });
+    </script>
+</body>
+
+</html>

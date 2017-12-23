@@ -186,7 +186,85 @@ Utils.GetGpuLocation = (gl, program, name, isbool) => {
     };
     return -1;
 };
-
+/**
+ * 缓冲区设置顶点着色器数据
+ * @param {webgl} gl   canvas的webgl持有对象
+ * @param {Boolean} type 创建顶点数据或者顶点索引缓存
+ * @param {program} program   渲染着色器持有对象
+ * @param {string} name 顶点着色器变量名称
+ * @param {Float32Array} data Float32Array 或者Float16Array 的顶点数据
+ * @param {int} size 顶点数据分量值 2 为x y 3 为x y z
+ * @param {int} stride 一个点组成数据长度
+ * @param {int} offset 分量数据位移 如 xyz uv
+ * @return {int} count  成功返回 渲染点的数量 失败返回 0
+ */
+Utils.EnableBuffer = (gl, type, program, name, data, size, stride, offset)=>{
+    let count, fsize, position, buffer;
+    if (!(gl && data.length > 0 && size && name)) {
+        console.log("传入参数错误");
+        return 0;
+    };
+    count = data.length / size;
+    fsize = data.BYTES_PER_ELEMENT;
+    //创建一个gl的缓冲区对象
+    buffer = gl.createBuffer();
+    if (!buffer) {
+        console.log("创建缓冲区对象失败");
+        return 0;
+    };
+    /**
+     * 将创建的缓冲区设置为顶点缓冲区
+     * gl. ARRAY_BUFFER  表示缓冲区对象中包含了顶点的数据。
+     * gl.ELEMENT_ARRAY_BUFFER 表示缓冲区包含了顶点的索引值。
+     */
+    gl.bindBuffer(type?gl.ELEMENT_ARRAY_BUFFER:gl.ARRAY_BUFFER, buffer);
+    /**
+     * 创建指定大小显卡缓冲区 ps STATIC_DRAW 告诉显卡为静态数据不修改
+     * webgl.STATIC_DRAW 向缓冲区中写入一次数据， 但需要绘制很多次
+     * webgl.STREAM_DRAW 写入一次数据，绘制若干次
+     * webgl.DYNAMIC_DRAW  向缓冲区中多次写入数据， 绘制多次
+     */
+    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+    //获取顶点着色器变量
+    position = Utils.GetGpuLocation(gl, program, name);
+    if (position < 0) {
+        gl.deleteBuffer(buffer);
+        console.log("获取WebGl顶点变量" + name + "失败");
+        return 0;
+    };
+    //将缓冲区对象分配给着色器变量
+    gl.vertexAttribPointer(position, size, gl.FLOAT, false, stride * fsize,  (offset || 0) *fsize);
+    //将顶点变量与分配的缓冲区对象连接起来
+    gl.enableVertexAttribArray(position);
+    return count;
+}
+Utils.AddTexture = (gl, program,bitmap)=>{
+    //创建纹理对象
+    let texture = gl.createTexture();
+    //将创建的纹理单元绑定
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    //将纹理图片反转
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    //配置纹理参数
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    //将img绑定到纹理
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bitmap);
+    //绑定一个空纹理 清空状态机
+    //gl.bindTexture(gl.TEXTURE_2D,null);
+    return texture;
+}
+Utils.BindTexture = (gl, program, name, x, texture)=>{
+    let location = Utils.GetGpuLocation(gl, program, name,true);
+    //开启0号纹理单元
+    gl.activeTexture(gl["TEXTURE" + x]);
+    //绑定纹理
+    gl.bindTexture(gl.TEXTURE_2D,texture);
+    //设置纹理
+    gl.uniform1i(location,x);
+}
 /**
  * 生成一个指定范围的随机数
  * @param {number} min 最小范围
