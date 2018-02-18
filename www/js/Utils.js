@@ -241,19 +241,20 @@ Utils.EnableBuffer = (gl, type, program, name, data, size, stride, offset)=>{
 Utils.AddTexture = (gl, program,bitmap)=>{
     //创建纹理对象
     let texture = gl.createTexture();
+    texture.bitmap = bitmap;
     //将创建的纹理单元绑定
     gl.bindTexture(gl.TEXTURE_2D, texture);
     //将纹理图片反转
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     //配置纹理参数
+    //将img绑定到纹理
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bitmap);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    //将img绑定到纹理
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bitmap);
     //绑定一个空纹理 清空状态机
-    //gl.bindTexture(gl.TEXTURE_2D,null);
+    gl.bindTexture(gl.TEXTURE_2D,null);
     return texture;
 }
 Utils.BindTexture = (gl, program, name, x, texture)=>{
@@ -265,6 +266,36 @@ Utils.BindTexture = (gl, program, name, x, texture)=>{
     //设置纹理
     gl.uniform1i(location,x);
 }
+Utils.LoadedTexture = (gl,image)=>{
+    //创建纹理
+    let texture = gl.createTexture();
+    texture.image = image;//给纹理添加动态属性
+    gl.bindTexture(gl.TEXTURE_2D,texture);//将纹理进行绑定
+    //将纹理图片反转坐标反转 因为纹理坐标Y轴是由上到下为正 必须转为webgl坐标
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+    //纹理进行图片采集 使用等级0 目标与结构均为RGBA 数据大小0-255 颜色值
+    /**
+     * void texImage2D(GLenum target, GLint level, GLenum internalformat,
+     *  GLsizei width, GLsizei height, GLint border, GLenum format,
+     *  GLenum type, ArrayBufferView? pixels);
+     **/
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,texture.image);
+    //纹理放大使用gl.NEAREST 最近采样算法 gl.LINEAR 线性采样算法 效果好效率低
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+    //纹理缩小算法
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+    /**
+     * 纹理进出包装 超出UV采集 例如最大S为1 如果设置2 进行图片补全
+     * REPEAT 使用纹理重复填充
+     * CLAMP_TO_EDGE 边缘点进行填充
+     * MIRRORED_REPEAT 镜像平铺填充
+     **/
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT);
+    //绑定一个空纹理
+    gl.bindTexture(gl.TEXTURE_2D,null);
+    return texture;
+}
 /**
  * 生成一个指定范围的随机数
  * @param {number} min 最小范围
@@ -272,6 +303,15 @@ Utils.BindTexture = (gl, program, name, x, texture)=>{
  */
 Utils.Random = function(min, max) {
     return Math.floor(min + Math.random() * (max - min));
+};
+/**
+ * 角度值转为弧度值
+ * @param deg
+ * @returns {number}
+ * @constructor
+ */
+Utils.DegToRad = function(deg) {
+    return deg/180*Math.PI;
 };
 /**
  * 传统鼠标的坐标转换为webgl坐标

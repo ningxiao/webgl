@@ -48,13 +48,13 @@
     </div>
     <script type="text/javascript">
         (function(exports) {
-            var clientrect = document.documentElement.getBoundingClientRect();
+            let clientrect = document.documentElement.getBoundingClientRect();
             document.addEventListener('touchmove', function(event) {
                 event.preventDefault();
             });
 
-            var latitudeBands = 80;//纬度带
-             var longitudeBands = 80;//经度带
+            let latitudeBands = 80;//纬度带
+            let longitudeBands = 80;//经度带
              var positions = [];//存储x，y，z坐标
              var indices = [];//三角形列表（索引值）
 

@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>模拟日、月、地公转与自转</title>
+    <style type="text/css">
+        * {
+            margin: 0;
+            padding: 0;
+        }
+        
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+        }
+        
+        .panel {
+            overflow: hidden;
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 0;
+        }
+        
+        canvas {
+            position: absolute;
+        }
+    </style>
+    <script src="../js/Utils.js"></script>
+    <script src="../js/gl-matrix-min.js"></script>
+</head>
+
+<body>
+    <div class="panel">
+        <canvas></canvas>
+    </div>
+    <script type="text/javascript">
+        (function(exports) {
+            var clientrect = document.documentElement.getBoundingClientRect();
+            document.addEventListener('touchmove', function(event) {
+                event.preventDefault();
+            });
+            exports.config = {
+                'width': clientrect.width,
+                'height': clientrect.height,
+                'centerX': clientrect.width / 2,
+                'centerY': clientrect.height / 2,
+                'args': {
+                    antialias: true,
+                    stencil: true
+                },
+                'shader': {
+                    //顶点着色器代码 OpenGL ES SL 3.0规范中以前的attribute改成了in varying改成了out
+                    'x-vertex': `
+                        precision   lowp    float;
+                        attribute   vec3    v3Position;
+                        attribute   vec4    inColor;
+                        attribute   vec2    inUV;
+                        uniform     mat4    p_matrix;
+                        varying     vec4    outColor;
+                        varying     vec2    outUV;
+
+                        void main()
+                        {
+                            gl_Position =   p_matrix * vec4(v3Position, 1.0);
+                            outColor    =   inColor;
+                            outUV       =   inUV;
+                        }
+                    `,
+                    //片段着色器
+                    'x-fragment': `
+                        precision lowp float;//精度限制
+                        varying     vec4        outColor;
+                        varying     vec2        outUV;
+                        uniform     sampler2D   texture;
+                        void main(void){
+                            gl_FragColor = texture2D(texture,outUV) * outColor;
+                        }
+                    `
+                }
+            };
+        })(typeof exports === 'object' ? exports : window);
+    </script>
+    <script type="text/javascript">
+        var boxVertex = new Float32Array([
+                //x     y     z     u    v      r    g    b    a
+                -1.0, -1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0,
+                1.0, -1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0,
+                1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+
+                -1.0, -1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0,
+                1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+                -1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+
+                -1.0, -1.0, -1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0,
+                -1.0, 1.0, -1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0,
+                1.0, 1.0, -1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0,
+
+                -1.0, -1.0, -1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0,
+                1.0, 1.0, -1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0,
+                1.0, -1.0, -1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0,
+
+                -1.0, 1.0, -1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0,
+                -1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0,
+                1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0,
+
+                -1.0, 1.0, -1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0,
+                1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0,
+                1.0, 1.0, -1.0, 1.0, 1.0, 0.0, 1.0, 0.0, 1.0,
+
+                -1.0, -1.0, -1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0,
+                1.0, -1.0, -1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0,
+                1.0, -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0,
+
+                -1.0, -1.0, -1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0,
+                1.0, -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0,
+                -1.0, -1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0,
+
+                1.0, -1.0, -1.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0,
+                1.0, 1.0, -1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 1.0,
+                1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0,
+
+                1.0, -1.0, -1.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0,
+                1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0,
+                1.0, -1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0,
+
+                -1.0, -1.0, -1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0,
+                -1.0, -1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0,
+                -1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0,
+
+                -1.0, -1.0, -1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0,
+                -1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0,
+                -1.0, 1.0, -1.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0,
+            ]);
+    </script>
+    <script type="text/javascript">
+        const canvas = document.querySelector('canvas');
+        //设置透视投影
+        const projectMat = mat4.perspective(mat4.create(),45 / 180.0 * Math.PI,config.width/config.height,0.1,10000);
+        let gl, program, vertexShader, fragmentShader;
+        let p_matrix,texture;// 使用getUniformLocation 获取
+        let inUV,inColor,v3Position;// 使用getAttribLocation获取
+        let triangleBuffer;//模拟星球缓冲顶点模型
+        let textureStar;//星球纹理
+        let rotEarth = 0;
+        let rotMoon = 0;
+
+        let bitmap,imgs = [{'1.png':'./imgs/1.png'},{'fog.png':'./imgs/fog.png'},{'test.gif':'./imgs/test.gif'}];
+        /**
+         * 绘制太阳旋转
+         * */
+        function drawSun() {
+            let matTrans = mat4.create();
+            var matRot = mat4.create();
+            let matScale = mat4.create();
+            let matModel = mat4.create();
+            var matAll = mat4.create();
+            let mvp      = mat4.create();
+            // 清空单位矩阵
+            mat4.identity(matTrans);
+            mat4.identity(matScale);
+            mat4.identity(matRot);
+            mat4.identity(matModel);
+            mat4.identity(mvp);
+            // 设置缩放 放大3倍
+            mat4.scale(matScale,matScale,[3,3,3]);
+            // 位移
+            mat4.translate(matTrans,matTrans,[0,0,-40]);
+            // 将模型旋转沿Y轴旋转45度
+            mat4.rotate(matRot,matRot, Utils.DegToRad(45), [0.0, 1.0, 0]);
+            // 将位移与缩放合并为新的矩形
+            mat4.multiply(matModel,matTrans, matScale);
+            //将模型矩阵与旋转矩阵合并
+            mat4.multiply(matAll,matModel, matRot);
+            //将透视矩阵与位移、缩放、旋转矩阵合并
+            mat4.multiply(mvp,projectMat, matAll);
+            //设置三维投影矩形 数据为矩阵4个数的浮点类型
+            gl.uniformMatrix4fv(p_matrix, false, mvp);
+            //启用顶点属性数组并且使用上一个状态绑定的缓冲区
+            gl.enableVertexAttribArray(v3Position);
+            gl.enableVertexAttribArray(inColor);
+            gl.enableVertexAttribArray(inUV);
+            //顶点属性指针进行绑定
+            gl.vertexAttribPointer(v3Position, 3, gl.FLOAT, false, 4 * 9, 0);
+            gl.vertexAttribPointer(inUV, 2, gl.FLOAT, false, 4 * 9, 4 * 3);
+            gl.vertexAttribPointer(inColor, 4, gl.FLOAT, false, 4 * 9, 4 * 5);
+
+            gl.drawArrays(gl.TRIANGLES, 0, 36);
+
+            return matTrans;
+
+        }
+        /**
+         * 绘制地球
+         * */
+        function drawEarth(matSun){
+            rotEarth += 1.0;
+            var matTrans = mat4.create();
+            var matRot = mat4.create();
+            var matModel = mat4.create();
+            var matAll = mat4.create();
+            var mvp = mat4.create();
+
+            mat4.identity(matTrans);
+            mat4.identity(matRot);
+            mat4.identity(matModel);
+            mat4.identity(matAll);
+            mat4.identity(mvp);
+
+            mat4.translate(matTrans,matTrans, [0, 0.0, -10]);
+            mat4.rotate(matRot,matRot, Utils.DegToRad(rotEarth), [0, 1.0, 0]);
+
+            mat4.multiply(matModel,matSun, matRot);
+            // 地球沿太阳的位置位移
+            mat4.multiply(matAll,matModel, matTrans);
+
+            mat4.multiply(mvp,projectMat, matAll);
+
+
+            gl.uniformMatrix4fv(p_matrix, false, mvp);
+
+            gl.enableVertexAttribArray(v3Position);
+            gl.enableVertexAttribArray(inColor);
+            gl.enableVertexAttribArray(inUV);
+
+            gl.vertexAttribPointer(v3Position, 3, gl.FLOAT, false, 4 * 9, 0);
+            gl.vertexAttribPointer(inUV, 2, gl.FLOAT, false, 4 * 9, 4 * 3);
+            gl.vertexAttribPointer(inColor, 4, gl.FLOAT, false, 4 * 9, 4 * 5);
+
+            gl.drawArrays(gl.TRIANGLES, 0, 36);
+
+            return matAll;
+
+        }
+        function drawMoon(matEarth) {
+
+            rotMoon += 10.0;
+            var matTrans    =   mat4.create();
+            var matRot      =   mat4.create();
+            var matModel    =   mat4.create();
+            var matAll      =   mat4.create();
+            var mvp         =   mat4.create();
+
+            mat4.identity(matTrans);
+            mat4.identity(matRot);
+            mat4.identity(matModel);
+            mat4.identity(matAll);
+            mat4.identity(mvp);
+
+            mat4.translate(matTrans,matTrans, [0, 0.0, -6]);
+
+            mat4.rotate(matRot,matRot, Utils.DegToRad(rotMoon), [0, 1.0, 0]);
+
+            mat4.multiply(matModel,matEarth, matRot);
+
+            mat4.multiply(matAll,matModel,matTrans);
+
+            mat4.multiply(mvp,projectMat, matAll);
+
+
+            gl.uniformMatrix4fv(p_matrix, false, mvp);
+
+            gl.enableVertexAttribArray(v3Position);
+            gl.enableVertexAttribArray(inColor);
+            gl.enableVertexAttribArray(inUV);
+
+            gl.vertexAttribPointer(v3Position, 3, gl.FLOAT, false, 4 * 9, 0);
+            gl.vertexAttribPointer(inUV, 2, gl.FLOAT, false, 4 * 9, 4 * 3);
+            gl.vertexAttribPointer(inColor, 4, gl.FLOAT, false, 4 * 9, 4 * 5);
+
+            gl.drawArrays(gl.TRIANGLES, 0, 36);
+
+            return matAll;
+        }
+
+        function renderScene() {
+
+            //! 设置重绘背景的颜色
+            gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            //! 执行绘制，即将背景清空成制定的颜色(clearColor)
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            gl.enable(gl.DEPTH_TEST);
+            //! 指定绘制所使用的顶点数据 从 该缓冲区中获取
+            gl.bindBuffer(gl.ARRAY_BUFFER, triangleBuffer);
+            var sunMat = mat4.create();
+            mat4.identity(sunMat);
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, textureStar);
+            gl.uniform1i(texture, 0);
+            // 以太阳为中心进行位移 例如 移动太阳的同时地球和月亮也移动 因为一太阳为相对移动。
+            var matSun      =   drawSun();
+            var matEarth    =   drawEarth(matSun);
+            drawMoon(matEarth);
+        }
+
+
+        function tick() {
+            requestAnimationFrame(tick);
+            renderScene();
+
+        }
+
+        Utils.QueueImg(imgs,function (imgs) {
+            bitmap = imgs;
+            canvas.setAttribute('width', config.width);
+            canvas.setAttribute('height', config.height);
+            gl = Utils.WebGlContext(canvas);
+            //创建顶点着色器
+            vertexShader = Utils.WebGLShader(gl,'x-vertex',config.shader['x-vertex']);
+            //创建片源着色器
+            fragmentShader = Utils.WebGLShader(gl,'x-fragment',config.shader['x-fragment']);
+            //创建渲染可执行程序
+            program = Utils.WebProgram(gl,vertexShader,fragmentShader);
+            //将glsl语言定义的对象绑定到js定义的对象 大量数据推荐使用
+            v3Position = gl.getAttribLocation(program,"v3Position");
+            inColor = gl.getAttribLocation(program,"inColor");
+            inUV = gl.getAttribLocation(program,"inUV");
+            //获取GLSL全局变量纹理
+            p_matrix = gl.getUniformLocation(program, "p_matrix");
+            texture = gl.getUniformLocation(program, "texture");
+            //创建顶点数据缓冲区
+            triangleBuffer = gl.createBuffer();
+            /**
+             * 将创建的缓冲区设置为顶点缓冲区
+             * webgl. ARRAY_BUFFER  表示缓冲区对象中包含了顶点的数据。
+             * webgl.ELEMENT_ARRAY_BUFFER 表示缓冲区包含了顶点的索引值。
+             */
+            gl.bindBuffer(gl.ARRAY_BUFFER, triangleBuffer);
+            /**
+             * 创建指定大小显卡缓冲区 ps STATIC_DRAW 告诉显卡为静态数据不修改
+             * webgl.STATIC_DRAW 向缓冲区中写入一次数据， 但需要绘制很多次
+             * webgl.STREAM_DRAW 写入一次数据，绘制若干次
+             * webgl.DYNAMIC_DRAW  向缓冲区中多次写入数据， 绘制多次
+             */
+            gl.bufferData(gl.ARRAY_BUFFER, boxVertex, gl.STATIC_DRAW);
+            //创建纹理对象
+            textureStar = Utils.AddTexture(gl,program,bitmap["test.gif"]);
+            tick();
+        });
+    </script>
+</body>
+</html>
