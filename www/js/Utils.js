@@ -238,19 +238,25 @@ Utils.EnableBuffer = (gl, type, program, name, data, size, stride, offset)=>{
     gl.enableVertexAttribArray(position);
     return count;
 }
-Utils.AddTexture = (gl, program,bitmap)=>{
+Utils.AddTexture = (gl, program,bitmap,width,height)=>{
     //创建纹理对象
     let texture = gl.createTexture();
-    texture.bitmap = bitmap;
     //将创建的纹理单元绑定
     gl.bindTexture(gl.TEXTURE_2D, texture);
     //将纹理图片反转
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-    //配置纹理参数
     //将img绑定到纹理
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bitmap);
+    if(bitmap){// 当图片存在的时候利用图片创建纹理
+        texture.bitmap = bitmap;
+        //配置纹理参数
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bitmap);
+    }else{// 如果不存在 并且设置了 高宽 说明需要创建一个存颜色的纹理对象
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA,width,height,0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    }
+    //指定滤波类型
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    //主要解决部分显卡不支持2的N次方的展示
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     //绑定一个空纹理 清空状态机

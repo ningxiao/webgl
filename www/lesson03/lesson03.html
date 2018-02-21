@@ -78,7 +78,7 @@
                         void main(){
                             vec4  color0 = texture2D(texture,out_uv);
                             vec4  color1 = texture2D(texture1,vec2(out_uv.s + u_sep,out_uv.t));
-                            if(overlay>0){//修改纹理之后不在设置纹理叠加实现浮云效果
+                            if(bool(overlay)){//修改纹理之后不在设置纹理叠加实现浮云效果
                                 gl_FragColor = color0;
                             }else{
                                 gl_FragColor = color0 + color1;
@@ -178,67 +178,6 @@
             //顶点数据
             vertex = new Float32Array([
                 //x    y    z    u   v
-                -1.0,-1.0, 1.0, 0.0,0.0,
-                 1.0,-1.0, 1.0, 1.0,0.0,
-                 1.0, 1.0, 1.0, 1.0,1.0,
-                -1.0, 1.0, 1.0, 0.0,1.0,
-
-                -1.0,-1.0,-1.0, 0.0,0.0,
-                 1.0,-1.0,-1.0, 1.0,0.0,
-                 1.0, 1.0,-1.0, 1.0,1.0,
-                -1.0, 1.0,-1.0, 0.0,1.0,
-
-                 1.0,-1.0, 1.0, 0.0,0.0,
-                 1.0,-1.0,-1.0, 1.0,0.0,
-                 1.0, 1.0,-1.0, 1.0,1.0,
-                 1.0, 1.0, 1.0, 0.0,1.0,
-
-                -1.0,-1.0, 1.0, 0.0,0.0,
-                -1.0,-1.0,-1.0, 1.0,0.0,
-                -1.0, 1.0,-1.0, 1.0,1.0,
-                -1.0, 1.0, 1.0, 0.0,1.0,
-
-                -1.0, 1.0, 1.0, 0.0,0.0,
-                 1.0, 1.0, 1.0, 1.0,0.0,
-                 1.0, 1.0,-1.0, 1.0,1.0,
-                -1.0, 1.0,-1.0, 0.0,1.0,
-
-                -1.0,-1.0, 1.0, 0.0,0.0,
-                 1.0,-1.0, 1.0, 1.0,0.0,
-                 1.0,-1.0,-1.0, 1.0,1.0,
-                -1.0,-1.0,-1.0, 0.0,1.0,
-
-
-            ]);
-            index = new Uint16Array([//绘制线
-                0, 1, 2, 0, 2, 3,//正面
-                4, 5, 6, 4, 6, 7,//后面
-                8, 9, 10, 8, 10, 11,//右面
-                12, 13, 14, 12, 14, 15,//左面
-                16, 17, 18, 16, 18, 19,//顶面
-                20, 21, 22, 20, 22, 23,//底面
-            ]);
-            //创建顶点数据缓冲区
-            vertexBuffer = gl.createBuffer();
-            /**
-             * 将创建的缓冲区设置为顶点缓冲区
-             * webgl. ARRAY_BUFFER  表示缓冲区对象中包含了顶点的数据。
-             * webgl.ELEMENT_ARRAY_BUFFER 表示缓冲区包含了顶点的索引值。
-             */
-            gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-            /**
-             * 创建指定大小显卡缓冲区 ps STATIC_DRAW 告诉显卡为静态数据不修改
-             * webgl.STATIC_DRAW 向缓冲区中写入一次数据， 但需要绘制很多次
-             * webgl.STREAM_DRAW 写入一次数据，绘制若干次
-             * webgl.DYNAMIC_DRAW  向缓冲区中多次写入数据， 绘制多次
-             */
-            gl.bufferData(gl.ARRAY_BUFFER, vertex, gl.DYNAMIC_DRAW);
-
-            //创建顶点数据缓冲区
-            let vBuffer = gl.createBuffer();
-            gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-                //x    y    z    u   v
                 -0.5,-0.5, 1.0, 0.0,0.0,
                 0.5,-0.5, 1.0, 1.0,0.0,
                 0.5, 0.5, 1.0, 1.0,1.0,
@@ -267,10 +206,31 @@
                 -1.0,-1.0, 1.0, 0.0,0.0,
                 1.0,-1.0, 1.0, 1.0,0.0,
                 1.0,-1.0,-1.0, 1.0,1.0,
-                -1.0,-1.0,-1.0, 0.0,1.0,
-
-
-            ]), gl.DYNAMIC_DRAW);
+                -1.0,-1.0,-1.0, 0.0,1.0
+            ]);
+            index = new Uint16Array([//绘制线
+                0, 1, 2, 0, 2, 3,//正面
+                4, 5, 6, 4, 6, 7,//后面
+                8, 9, 10, 8, 10, 11,//右面
+                12, 13, 14, 12, 14, 15,//左面
+                16, 17, 18, 16, 18, 19,//顶面
+                20, 21, 22, 20, 22, 23,//底面
+            ]);
+            //创建顶点数据缓冲区
+            vertexBuffer = gl.createBuffer();
+            /**
+             * 将创建的缓冲区设置为顶点缓冲区
+             * webgl. ARRAY_BUFFER  表示缓冲区对象中包含了顶点的数据。
+             * webgl.ELEMENT_ARRAY_BUFFER 表示缓冲区包含了顶点的索引值。
+             */
+            gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+            /**
+             * 创建指定大小显卡缓冲区 ps STATIC_DRAW 告诉显卡为静态数据不修改
+             * webgl.STATIC_DRAW 向缓冲区中写入一次数据， 但需要绘制很多次
+             * webgl.STREAM_DRAW 写入一次数据，绘制若干次
+             * webgl.DYNAMIC_DRAW  向缓冲区中多次写入数据， 绘制多次
+             */
+            gl.bufferData(gl.ARRAY_BUFFER, vertex, gl.DYNAMIC_DRAW);
             //创建顶点的索引缓冲区
             indexBuffer = gl.createBuffer();
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);

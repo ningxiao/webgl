@@ -141,7 +141,7 @@
     <script type="text/javascript">
         const canvas = document.querySelector('canvas');
         //设置透视投影
-        const projectMat = mat4.perspective(mat4.create(),45 / 180.0 * Math.PI,config.width/config.height,0.1,10000);
+        const projectMat = mat4.perspective(mat4.create(),45,config.width/config.height,0.1,10000);
         let gl, program, vertexShader, fragmentShader;
         let p_matrix,texture;// 使用getUniformLocation 获取
         let inUV,inColor,v3Position;// 使用getAttribLocation获取
@@ -282,11 +282,18 @@
 
             //! 设置重绘背景的颜色
             gl.clearColor(0.0, 0.0, 0.0, 1.0);
-            //! 执行绘制，即将背景清空成制定的颜色(clearColor)
+            //! 执行绘制，即将背景清空成制定的颜色(clearColor) 每次绘制都要清空 颜色与深度缓冲区
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            // 设置混合方式 怎么处理透明
+            gl.blendFunc(gl.SRC_ALPHA,gl.ONE);
             gl.enable(gl.DEPTH_TEST);
+            gl.depthFunc(gl.LEQUAL);
+
+            //gl.disable(gl.DEPTH_TEST); // 禁用深度测试
+            //gl.enable(gl.DEPTH_TEST)//开启深度测试
+
             //! 指定绘制所使用的顶点数据 从 该缓冲区中获取
-            gl.bindBuffer(gl.ARRAY_BUFFER, triangleBuffer);
+            // gl.bindBuffer(gl.ARRAY_BUFFER, triangleBuffer);
             var sunMat = mat4.create();
             mat4.identity(sunMat);
             gl.activeTexture(gl.TEXTURE0);
