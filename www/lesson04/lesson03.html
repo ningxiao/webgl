@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>使用帧缓存绘制内容(RTT)</title>
+    <title>鼠标控制场景</title>
     <style type="text/css">
         * {
             margin: 0;
@@ -88,27 +88,7 @@
 
             -1.0, -1.0, -1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0,
             -1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0,
-            -1.0, 1.0, -1.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0,
-
-
-            // 0, 0, 0, 0.0, 0.0, 1, 1, 1, 1,
-            // 400, 0, 0, 1.0, 0.0, 1, 1, 1, 1,
-            // 400, 400, 0, 1.0, 1.0, 1, 1, 1, 1,
-            //
-            // 0, 0, 0, 0.0, 0.0, 1, 1, 1, 1,
-            // 400, 400, 0, 1.0, 1.0, 1, 1, 1, 1,
-            // 0, 400, 0, 0.0, 1.0, 1, 1, 1, 1,
-
-            0, 0, 0, 1.0, 0.0, 1, 1, 1, 1,
-            400, 0, 0, 1.0, 1.0, 1, 1, 1, 1,
-            400, 400, 0, 0.0, 1.0, 1, 1, 1, 1,
-
-            0, 0, 0, 1.0, 0.0, 1, 1, 1, 1,
-            400, 400, 0, 0.0, 1.0, 1, 1, 1, 1,
-            0, 400, 0, 0.0, 0.0, 1, 1, 1, 1,
-
-
-
+            -1.0, 1.0, -1.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0
         ]);
 
     </script>
@@ -170,10 +150,8 @@
         let iuv,inColor,texture,p_matrix,v3position;
         let bitmap, triangleBuffer;
         let glfbo,textureHandle,textureDynamic;
-        let rPyramid = 0;
         let varTransZ = -5;
         let varTransX = 0;
-        let varRot = 0;
         let varScale = 1;
         function handleKeyDown(event) {
             if (String.fromCharCode(event.keyCode) == 'W') {
@@ -188,10 +166,6 @@
             else if (String.fromCharCode(event.keyCode) == 'D') {
                 varTransX += 1;
             }
-            else if (String.fromCharCode(event.keyCode) == 'R') {
-                varRot += 1;
-            }
-
             else if (String.fromCharCode(event.keyCode) == 'Z') {
                 varScale += 0.1;
             }
@@ -199,9 +173,6 @@
                 varScale -= 0.1;
             }
         }
-        function handleKeyUp(event) {
-        }
-
         function  init() {
             canvas.setAttribute('width', config.width);
             canvas.setAttribute('height', config.height);
@@ -278,15 +249,22 @@
 
         let matTrans = mat4.create(); // 平移矩阵
         let matRot = mat4.create(); // 旋转矩阵
+        let matRotX     =   mat4.create();
+        let matROtY     =   mat4.create();
+        let matModel = mat4.create();
         let matScale = mat4.create(); // 缩放矩阵
         let mvp = mat4.create(); // 视图 模型 投影
+
         //用户自定义渲染fbo
         function renderToFBO() {
             // 重复使用矩阵进行归一重重
             mat4.identity(matTrans);
             mat4.identity(matRot);
+            mat4.identity(matRotX);
+            mat4.identity(matROtY);
             mat4.identity(matScale);
             mat4.identity(mvp);
+            mat4.identity(matModel);
             //将fb绑定为目前的窗口 下面所有的绘制都应用于用户自定义fbo里面
             gl.bindFramebuffer(gl.FRAMEBUFFER, glfbo);
             gl.viewport(0, 0, config.width,config.height);
@@ -302,8 +280,11 @@
             //设置纹理
             gl.uniform1i(texture, 0);
             mat4.translate(matTrans,matTrans,[varTransX, 0.0, varTransZ]);
-            mat4.rotate(matRot,matTrans,Utils.DegToRad(varRot), [1.0, 1.0, 1.0]);
-            mat4.scale(matScale,matRot,[varScale, 1, 1]);
+            mat4.rotate(matRotX,matRotX,Utils.DegToRad(varRotFBOY), [1.0, 0.0, 0.0]);
+            mat4.rotate(matROtY,matROtY,Utils.DegToRad(varRotFBOX), [0.0, 1.0, 0.0]);
+            mat4.multiply(matRot,matRotX, matROtY);
+            mat4.multiply(matModel,matTrans,matRot);
+            mat4.scale(matScale,matModel,[varScale, 1, 1]);
             mat4.multiply(mvp,projectMat, matScale);
             gl.uniformMatrix4fv(p_matrix, false, mvp);
             gl.drawArrays(gl.TRIANGLES, 0, 36);
@@ -313,9 +294,11 @@
             // 重复使用矩阵进行归一重重
             mat4.identity(matTrans);
             mat4.identity(matRot);
+            mat4.identity(matRotX);
+            mat4.identity(matROtY);
             mat4.identity(matScale);
             mat4.identity(mvp);
-            varRot += 1;
+            mat4.identity(matModel);
             //! 这里使用系统的fbo
             gl.bindFramebuffer(gl.FRAMEBUFFER, null);
             gl.viewport(0, 0, config.width,config.height);
@@ -331,11 +314,37 @@
             //设置纹理
             gl.uniform1i(texture, 0);
             mat4.translate(matTrans,matTrans,[varTransX, 0.0, varTransZ]);
-            mat4.rotate(matRot,matTrans,Utils.DegToRad(varRot), [1.0, 1.0, 1.0]);
-            mat4.scale(matScale,matRot,[varScale, 1, 1]);
+            mat4.rotate(matRotX,matRotX,Utils.DegToRad(varRotFBOY), [1.0, 0.0, 0.0]);
+            mat4.rotate(matROtY,matROtY,Utils.DegToRad(varRotFBOX), [0.0, 1.0, 0.0]);
+            mat4.multiply(matRot,matRotX, matROtY);
+            mat4.multiply(matModel,matTrans,matRot);
+            mat4.scale(matScale,matModel,[varScale, 1, 1]);
             mat4.multiply(mvp,projectMat, matScale);
             gl.uniformMatrix4fv(p_matrix, false, mvp);
             gl.drawArrays(gl.TRIANGLES, 0, 36);
+        }
+        let mouseDown = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+        let varRotFBOX  =   0;
+        let varRotFBOY  =   0;
+        let varRotX = 0;
+        let varRotY = 0;
+        function handleMouseDown(event) {
+            mouseDown = true;
+            lastMouseX = event.offsetX;
+            lastMouseY = event.offsetY;
+        }
+        function handleMouseUp(event) {
+            mouseDown = false;
+            varRotX = varRotFBOX;
+            varRotY = varRotFBOY;
+        }
+        function handleMouseMove(event) {
+            if(mouseDown){
+                varRotFBOX = varRotX + (event.offsetX - lastMouseX) ;
+                varRotFBOY = varRotY + (event.offsetY - lastMouseY);
+            }
         }
         function tick() {
             requestAnimationFrame(tick);
@@ -344,7 +353,9 @@
         function webGlStart(data) {
             bitmap = data;
             document.onkeydown = handleKeyDown;
-            document.onkeyup = handleKeyUp;
+            canvas.onmousedown  =   handleMouseDown;
+            canvas.onmouseup    =   handleMouseUp;
+            canvas.onmousemove  =   handleMouseMove;
             init();
             tick();
         }
