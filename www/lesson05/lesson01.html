@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>鼠标控制场景</title>
+    <style type="text/css">
+        * {
+            margin: 0;
+            padding: 0;
+        }
+        
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+        }
+        
+        .panel {
+            overflow: hidden;
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 0;
+        }
+        
+        canvas {
+            position: absolute;
+        }
+    </style>
+    <script src="../js/Utils.js"></script>
+    <script src="../js/gl-matrix-min.js"></script>
+</head>
+
+<body>
+    <div class="panel">
+        <canvas></canvas>
+    </div>
+    <script type="text/javascript">
+        const   gSize   =   100;
+        const   gPos    =   -10;
+        const   rept    =   40;
+
+        const boxVertex = new Float32Array([
+            //x     y     z     u    v      r    g    b    a
+            -1.0, -1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0,
+            1.0, -1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0,
+            1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+
+            -1.0, -1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0,
+            1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+            -1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+
+            -1.0, -1.0, -1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0,
+            -1.0, 1.0, -1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0,
+            1.0, 1.0, -1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0,
+
+            -1.0, -1.0, -1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0,
+            1.0, 1.0, -1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0,
+            1.0, -1.0, -1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0,
+
+            -1.0, 1.0, -1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0,
+            -1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0,
+            1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0,
+
+            -1.0, 1.0, -1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0,
+            1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0,
+            1.0, 1.0, -1.0, 1.0, 1.0, 0.0, 1.0, 0.0, 1.0,
+
+            -1.0, -1.0, -1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0,
+            1.0, -1.0, -1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0,
+            1.0, -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0,
+
+            -1.0, -1.0, -1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0,
+            1.0, -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0,
+            -1.0, -1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0,
+
+            1.0, -1.0, -1.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0,
+            1.0, 1.0, -1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 1.0,
+            1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0,
+
+            1.0, -1.0, -1.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0,
+            1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0,
+            1.0, -1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0,
+
+            -1.0, -1.0, -1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0,
+            -1.0, -1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0,
+            -1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0,
+
+            -1.0, -1.0, -1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0,
+            -1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0,
+            -1.0, 1.0, -1.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0,
+
+
+            -gSize, gPos,   -gSize, 0.0,    0.0,    1.0,    1.0,    1.0,    1.0,
+            gSize,  gPos,   -gSize, rept,   0.0,    1.0,    1.0,    1.0,    1.0,
+            gSize,  gPos,   gSize,  rept,   rept,   1.0,    1.0,    1.0,    1.0,
+
+            -gSize, gPos,   -gSize, 0.0,    0.0,    1.0,    1.0,    1.0,    1.0,
+            gSize,  gPos,   gSize,  rept,   rept,   1.0,    1.0,    1.0,    1.0,
+            -gSize, gPos, gSize,    0.0,    rept,   1.0,    1.0,    1.0,    1.0,
+
+
+        ]);
+
+    </script>
+    <script type="text/javascript">
+        (function(exports) {
+            const clientrect = document.documentElement.getBoundingClientRect();
+            document.addEventListener('touchmove', function(event) {
+                event.preventDefault();
+            });
+            exports.config = {
+                'width': clientrect.width,
+                'height': clientrect.height,
+                'centerX': clientrect.width / 2,
+                'centerY': clientrect.height / 2,
+                'args': {
+                    antialias: true,
+                    stencil: true
+                },
+                'shader': {
+                    //顶点着色器代码 OpenGL ES SL 3.0规范中以前的attribute改成了in varying改成了out
+                    'x-vertex': `
+                        uniform mat4 p_matrix;//正交投影矩阵
+                        attribute vec4 inColor;//输入纹理的RGBA数据
+                        attribute vec3 v3position;//属性变量
+                        attribute vec2 iuv;//输入纹理的UV坐标
+                        varying   vec2 ouv;//输出给片段着色器
+                        varying   vec4 outColor;//输出给片段着色器
+                        void main(){
+                            ouv = iuv;
+                            outColor = inColor;
+                            gl_Position = p_matrix * vec4(v3position,1.0);
+                        }
+                    `,
+                    //片段着色器
+                    'x-fragment': `
+                        #ifdef GL_ES
+                        precision mediump float;//精度限制
+                        #endif
+                        varying   vec2 ouv;//输出给片段着色器
+                        varying   vec4 outColor;//输出给片段着色器
+                        uniform   sampler2D texture;//纹理对象
+                        void main(){
+                            gl_FragColor = texture2D(texture,ouv);
+                        }
+                    `
+                }
+            };
+        })(typeof exports === 'object' ? exports : window);
+    </script>
+    <script type="text/javascript">
+        /**
+         * FBO(Frame Buffer Object)是被推荐用于将数据渲染到纹理对象的扩展。
+         *
+         * */
+        const canvas = document.querySelector('canvas');
+        const imgS = [{'1.jpg':'./imgs/1.jpg'},{'fog.png':'./imgs/fog.png'},{'test.gif':'./imgs/test.gif'}];
+        const projectMat =  mat4.perspective(mat4.create(),45, config.width / config.height, 0.1, 100.0);
+        let iuv,inColor,texture,p_matrix,v3position;
+        let bitmap, triangleBuffer;
+        let glfbo,textureHandle,textureGround,textureDynamic;
+        let varTransZ = -5;
+        let varTransX = 0;
+        let varScale = 1;
+        function handleKeyDown(event) {
+            if (String.fromCharCode(event.keyCode) == 'W') {
+                cameraEye[0] += cameraLookAt[0] * 1;
+                cameraEye[1] += 0;
+                cameraEye[2] += cameraLookAt[2] * 1;
+
+                cameraCenter[0] = cameraEye[0] + cameraLookAt[0] * 1;
+                cameraCenter[1] = cameraEye[1] + 0;
+                cameraCenter[2] = cameraEye[2] + cameraLookAt[2] * 1;
+                mat4.lookAt(viewMat,cameraEye, cameraCenter, cameraUp);
+
+            }
+            if (String.fromCharCode(event.keyCode) == 'S') {
+                cameraEye[0] -= cameraLookAt[0] * 1;
+                cameraEye[1] -= 0;
+                cameraEye[2] -= cameraLookAt[2] * 1;
+
+                cameraCenter[0] = cameraEye[0] + cameraLookAt[0] * 1;
+                cameraCenter[1] = cameraEye[1] + 0;
+                cameraCenter[2] = cameraEye[2] + cameraLookAt[2] * 1;
+
+                mat4.lookAt(viewMat,cameraEye, cameraCenter, cameraUp);
+            }
+            if (String.fromCharCode(event.keyCode) == 'A') {
+                var right = vec3.create();
+                vec3.cross(right,cameraUp, cameraLookAt);
+                vec3.normalize(right, right);
+
+                right[0] *= 1;
+                right[1] *= 1;
+                right[2] *= 1;
+
+                cameraEye[0] += right[0];
+                cameraEye[1] += right[1];
+                cameraEye[2] += right[2];
+
+                cameraCenter[0] += right[0];
+                cameraCenter[1] += right[1];
+                cameraCenter[2] += right[2];
+
+                mat4.lookAt(viewMat,cameraEye, cameraCenter, cameraUp);
+
+            }
+            if (String.fromCharCode(event.keyCode) == 'D') {
+                var right = vec3.create();
+                vec3.cross(right,cameraUp, cameraLookAt);
+                vec3.normalize(right, right);
+                right[0] *= -1;
+                right[1] *= -1;
+                right[2] *= -1;
+
+                cameraEye[0] += right[0];
+                cameraEye[1] += right[1];
+                cameraEye[2] += right[2];
+
+                cameraCenter[0] += right[0];
+                cameraCenter[1] += right[1];
+                cameraCenter[2] += right[2];
+
+                mat4.lookAt(viewMat,cameraEye, cameraCenter, cameraUp);
+            }
+
+        }
+        function  init() {
+            canvas.setAttribute('width', config.width);
+            canvas.setAttribute('height', config.height);
+            gl = Utils.WebGlContext(canvas);
+            //创建顶点着色器
+            vertexShader = Utils.WebGLShader(gl,'x-vertex',config.shader['x-vertex']);
+            //创建片源着色器
+            fragmentShader = Utils.WebGLShader(gl,'x-fragment',config.shader['x-fragment']);
+            //创建渲染可执行程序
+            program = Utils.WebProgram(gl,vertexShader,fragmentShader);
+            //将glsl语言定义的对象绑定到js定义的对象 大量数据推荐使用
+            v3position = gl.getAttribLocation(program,"v3position");
+            iuv =  gl.getAttribLocation(program, "iuv");
+            inColor = gl.getAttribLocation(program, "inColor");
+            //获取GLSL全局变量color
+            p_matrix = gl.getUniformLocation(program, "p_matrix");
+            texture = gl.getUniformLocation(program, "texture");
+            //创建顶点数据缓冲区
+            triangleBuffer = gl.createBuffer();
+            /**
+             * 将创建的缓冲区设置为顶点缓冲区
+             * webgl. ARRAY_BUFFER  表示缓冲区对象中包含了顶点的数据。
+             * webgl.ELEMENT_ARRAY_BUFFER 表示缓冲区包含了顶点的索引值。
+             */
+            gl.bindBuffer(gl.ARRAY_BUFFER, triangleBuffer);
+            /**
+             * 创建指定大小显卡缓冲区 ps STATIC_DRAW 告诉显卡为静态数据不修改
+             * webgl.STATIC_DRAW 向缓冲区中写入一次数据， 但需要绘制很多次
+             * webgl.STREAM_DRAW 写入一次数据，绘制若干次
+             * webgl.DYNAMIC_DRAW  向缓冲区中多次写入数据， 绘制多次
+             */
+            gl.bufferData(gl.ARRAY_BUFFER, boxVertex, gl.STATIC_DRAW);
+            //启用顶点属性数组并且使用上一个状态绑定的缓冲区
+            gl.enableVertexAttribArray(v3position);
+            gl.enableVertexAttribArray(iuv);
+            //顶点属性指针进行绑定
+            gl.vertexAttribPointer(v3position, 3, gl.FLOAT, false, 4 * 9, 0);
+            gl.vertexAttribPointer(iuv, 2, gl.FLOAT, false, 4 * 9, 4 * 3);
+            gl.vertexAttribPointer(inColor, 4, gl.FLOAT, false, 4 * 9, 4 * 5);
+            textureHandle = Utils.AddTexture (gl, program,bitmap['test.gif']);
+            textureGround   =   Utils.AddTexture (gl, program,bitmap['1.jpg'],0,0,true);
+            glfbo = createFOB(config.width,config.height);
+
+        };
+
+        /**
+         * 创建一个fbo里面包含了深度、颜色缓冲区
+         * @param width
+         * @param height
+         * @returns {WebGLFramebuffer}
+         */
+        function createFOB(width, height) {
+            //创建一个Framebuffer
+            let obj         =   gl.createFramebuffer();
+            // 创建可绘制可渲染 缓冲区载体 包含 颜色、深度、模板缓冲区
+            let depthObj    =   gl.createRenderbuffer();
+            // 绑定帧缓冲区
+            gl.bindFramebuffer(gl.FRAMEBUFFER, obj);
+            // 绑定可绘制可渲染缓冲
+            gl.bindRenderbuffer(gl.RENDERBUFFER, depthObj);
+            // 分配内存给Renderbuffer 用于存储深度缓冲值
+            gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
+            //将帧缓冲绑定到深度缓冲区
+            gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depthObj);
+            // 创建一个空纹理对象进行纹理对象拷贝存放 纹理及是颜色缓冲区
+            textureDynamic =  Utils.AddTexture (gl, program,null,width, height);
+            // 将纹理缓冲区绑定到帧缓冲区
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, textureDynamic, 0);
+            // 恢复到原始fbo 使用系统自建
+            gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            gl.bindTexture(gl.TEXTURE_2D, null);
+            return obj;
+        }
+
+        let matTrans = mat4.create(); // 平移矩阵
+        let matRot = mat4.create(); // 旋转矩阵
+        let matRotX     =   mat4.create();
+        let matROtY     =   mat4.create();
+        let matTemp = mat4.create();
+        let matModel = mat4.create();
+        let matScale = mat4.create(); // 缩放矩阵
+        let mvp = mat4.create(); // 视图 模型 投影
+
+
+        let viewMat = mat4.create()
+        // 摄像机的位置
+        let cameraEye = new Float32Array([10,0,10]);
+        // 摄像看的方向
+        let cameraCenter = new Float32Array([0,0,0]);
+        //
+        let cameraUp = new Float32Array([0,1,0]);
+        // 保存看的方向
+        let cameraLookAt = new Float32Array(3);
+        vec3.subtract(cameraLookAt,cameraCenter, cameraEye);
+        vec3.normalize(cameraLookAt, cameraLookAt);
+
+        // 观察矩阵
+        mat4.lookAt(viewMat,cameraEye,cameraCenter,cameraUp);
+        //用户自定义渲染fbo
+        function renderToFBO() {
+            // 重复使用矩阵进行归一重重
+            mat4.identity(matTrans);
+            mat4.identity(matRot);
+            mat4.identity(matRotX);
+            mat4.identity(matROtY);
+            mat4.identity(matScale);
+            mat4.identity(mvp);
+            mat4.identity(matModel);
+            mat4.identity(matTemp);
+            //将fb绑定为目前的窗口 下面所有的绘制都应用于用户自定义fbo里面
+            gl.bindFramebuffer(gl.FRAMEBUFFER, glfbo);
+            gl.viewport(0, 0, config.width,config.height);
+            //! 设置重绘背景的颜色
+            gl.clearColor(1.0, 1.0, 1.0, 1.0);
+            //! 执行绘制，即将背景清空成制定的颜色(clearColor) 每次绘制都要清空 颜色与深度缓冲区
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            gl.enable(gl.DEPTH_TEST);
+            //开启0号纹理单元
+            gl.activeTexture(gl.TEXTURE0);
+            //绑定纹理
+            gl.bindTexture(gl.TEXTURE_2D, textureHandle);
+            //设置纹理
+            gl.uniform1i(texture, 0);
+            mat4.translate(matTrans,matTrans,[varTransX, 0.0, varTransZ]);
+            mat4.rotate(matRotX,matRotX,Utils.DegToRad(varRotFBOY), [1.0, 0.0, 0.0]);
+            mat4.rotate(matROtY,matROtY,Utils.DegToRad(varRotFBOX), [0.0, 1.0, 0.0]);
+            mat4.multiply(matRot,matRotX, matROtY);
+            mat4.multiply(matModel,matTrans,matRot);
+            mat4.scale(matScale,matModel,[varScale, 1, 1]);
+            // 立方体跟随箭头移动 透视 * 摄像机 * 模型
+            // mat4.multiply(matTemp,projectMat, viewMat);
+            // mat4.multiply(mvp,matTemp, matScale);
+            // 立方体固定屏幕大小
+            mat4.multiply(mvp,projectMat, matScale);
+            gl.uniformMatrix4fv(p_matrix, false, mvp);
+            gl.drawArrays(gl.TRIANGLES, 0, 36);
+        }
+        function  renderScene() {
+            renderToFBO();
+            // 重复使用矩阵进行归一重重
+            mat4.identity(matTrans);
+            mat4.identity(matRot);
+            mat4.identity(matRotX);
+            mat4.identity(matROtY);
+            mat4.identity(matScale);
+            mat4.identity(mvp);
+            mat4.identity(matModel);
+            mat4.identity(matTemp);
+            //! 这里使用系统的fbo
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            gl.viewport(0, 0, config.width,config.height);
+            //! 设置重绘背景的颜色
+            gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            //! 执行绘制，即将背景清空成制定的颜色(clearColor) 每次绘制都要清空 颜色与深度缓冲区
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            gl.enable(gl.DEPTH_TEST);
+            //开启0号纹理单元
+            gl.activeTexture(gl.TEXTURE0);
+            //绑定纹理
+            gl.bindTexture(gl.TEXTURE_2D, textureDynamic);
+            //设置纹理
+            gl.uniform1i(texture, 0);
+            mat4.translate(matTrans,matTrans,[varTransX, 0.0, varTransZ]);
+            mat4.rotate(matRotX,matRotX,Utils.DegToRad(varRotFBOY), [1.0, 0.0, 0.0]);
+            mat4.rotate(matROtY,matROtY,Utils.DegToRad(varRotFBOX), [0.0, 1.0, 0.0]);
+            mat4.multiply(matRot,matRotX, matROtY);
+            mat4.multiply(matModel,matTrans,matRot);
+            mat4.scale(matScale,matModel,[varScale, 1, 1]);
+            // 立方体跟随箭头移动
+            //  mat4.multiply(matTemp,projectMat, viewMat);
+            //  mat4.multiply(mvp,matTemp, matScale);
+            // 立方体固定屏幕大小
+            mat4.multiply(mvp,projectMat, matScale);
+
+            gl.uniformMatrix4fv(p_matrix, false, mvp);
+            gl.drawArrays(gl.TRIANGLES, 0, 36);
+
+            mat4.multiply(mvp,projectMat, viewMat);
+            gl.uniformMatrix4fv(p_matrix, false, mvp);
+            gl.bindTexture(gl.TEXTURE_2D, textureGround);
+            gl.drawArrays(gl.TRIANGLES, 36, 6);
+
+        }
+        let mouseDown = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+        let varRotFBOX  =   0;
+        let varRotFBOY  =   0;
+        let varRotX = 0;
+        let varRotY = 0;
+        function handleMouseDown(event) {
+            mouseDown = true;
+            lastMouseX = event.offsetX;
+            lastMouseY = event.offsetY;
+        }
+        function handleMouseUp(event) {
+            mouseDown = false;
+            varRotX = varRotFBOX;
+            varRotY = varRotFBOY;
+        }
+        function handleMouseMove(event) {
+            if(mouseDown){
+                varRotFBOX = varRotX + (event.offsetX - lastMouseX) ;
+                varRotFBOY = varRotY + (event.offsetY - lastMouseY);
+            }
+        }
+        function tick() {
+            requestAnimationFrame(tick);
+            renderScene();
+        }
+        function webGlStart(data) {
+            bitmap = data;
+            document.onkeydown = handleKeyDown;
+            canvas.onmousedown  =   handleMouseDown;
+            canvas.onmouseup    =   handleMouseUp;
+            canvas.onmousemove  =   handleMouseMove;
+            init();
+            tick();
+        }
+        Utils.QueueImg(imgS,webGlStart);
+    </script>
+</body>
+
+</html>

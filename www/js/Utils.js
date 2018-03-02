@@ -238,7 +238,7 @@ Utils.EnableBuffer = (gl, type, program, name, data, size, stride, offset)=>{
     gl.enableVertexAttribArray(position);
     return count;
 }
-Utils.AddTexture = (gl, program,bitmap,width,height)=>{
+Utils.AddTexture = (gl, program,bitmap,width,height,rept)=>{
     //创建纹理对象
     let texture = gl.createTexture();
     //将创建的纹理单元绑定
@@ -256,9 +256,15 @@ Utils.AddTexture = (gl, program,bitmap,width,height)=>{
     //指定滤波类型
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    //主要解决部分显卡不支持2的N次方的展示
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    if(rept){
+        //平铺
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    }else{
+        //主要解决部分显卡不支持2的N次方的展示
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    }
     //绑定一个空纹理 清空状态机
     gl.bindTexture(gl.TEXTURE_2D,null);
     return texture;
