@@ -166,7 +166,11 @@ Utils.WebGLShader = (gl, key, value) => {
     };
     return shader;
 };
-
+Utils.queryString = (name) => {
+    let href = window.location.search.substr(1).match(new RegExp("(^|&)" + name + "=([^&]*)(&|$)"));
+    if (href != null) return encodeURIComponent(href[2]);
+    return null;
+},
 /**
  * 获取GPU定义的变量引用
  * @param {webgl} gl      webgl对象
