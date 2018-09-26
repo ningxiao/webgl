@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>GLSL</title>
+    <style type="text/css">
+        * {
+            margin: 0;
+            padding: 0;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+        }
+
+        .panel {
+            overflow: hidden;
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 0;
+        }
+
+        canvas {
+            position: absolute;
+        }
+    </style>
+    <script src="../js/Utils.js"></script>
+</head>
+
+<body>
+    <div class="panel">
+        <canvas width="100%" height="100%"></canvas>
+    </div>
+    <script type="text/javascript">
+        (function (exports) {
+            const clientrect = document.documentElement.getBoundingClientRect();
+            document.addEventListener('touchmove', function (event) {
+                event.preventDefault();
+            });
+            exports.config = {
+                width: clientrect.width,
+                height: clientrect.height
+            };
+        })(typeof exports === 'object' ? exports : window);
+    </script>
+    <script src="../js/axios.min.js"></script>
+    <script src="../js/stats.js"></script>
+    <script>
+        const stats = new Stats();
+        stats.showPanel(1); // 0: fps, 1: ms, 2: mb, 3+: custom
+        document.body.appendChild(stats.dom);
+        function getFrag() {
+            return axios.get('./shader/04.frag');
+        }
+        function getVert() {
+            return axios.get('./shader/01.vert');
+        }
+        axios.all([getVert(), getFrag()]).then(axios.spread((vert, frag) => {
+            let indexs;
+            let vertexs;
+            let vertexbuffer;
+            let indexsbuffer;
+            let v3Position;
+            let u_resolution;
+            let count = 0;
+            let gl, ctx, program, vertexShader, fragmentShader;
+            let canvas = document.querySelector('canvas');
+            canvas.setAttribute('width', config.width);
+            canvas.setAttribute('height', config.height);
+            canvas.addEventListener("webglcontextcreationerror", ev => {
+                console.log(ev.statusMessage || "Unknown");
+            }, false);
+            //获取webgl上下文
+            gl = Utils.WebGlContext(canvas, true);
+            //创建gl着色器引用
+            vertexShader = Utils.WebGLShader(gl, "x-vertex", vert.data);
+            fragmentShader = Utils.WebGLShader(gl, "x-fragment", frag.data);
+            //创建一个渲染可执行程序
+            program = Utils.WebProgram(gl, vertexShader, fragmentShader);
+            //只可以链接之后读取使用 优先使用
+            v3Position = gl.getAttribLocation(program, "v3Position");
+            u_resolution = gl.getUniformLocation(program, "u_resolution");
+            // 也可以使用数组模式
+            gl.uniform2fv(u_resolution, new Float32Array([config.width, config.height]));
+            //顶点数据
+            vertexs = new Float32Array([
+                // x    y     z   nx   ny   nz
+                -1.0, 1.0, 0.0, 0.0, 0.0, 0.0,
+                1.0, 1.0, 0.0, 0.0, 0.0, 0.0,
+                1.0, -1.0, 0.0, 0.0, 0.0, 0.0,
+
+                -1.0, 1.0, 0.0, 0.0, 0.0, 0.0,
+                -1.0, -1.0, 0.0, 0.0, 0.0, 0.0,
+                1.0, -1.0, 0.0, 0.0, 0.0, 0.0
+            ]);
+            //创建数据缓冲区
+            vertexbuffer = gl.createBuffer();
+            /**
+             * 将创建的缓冲区设置为顶点缓冲区
+             * webgl. ARRAY_BUFFER  表示缓冲区对象中包含了顶点的数据。
+             * webgl.ELEMENT_ARRAY_BUFFER 表示缓冲区包含了顶点的索引值。
+             */
+            gl.bindBuffer(gl.ARRAY_BUFFER, vertexbuffer);
+            /**
+             * 创建指定大小显卡缓冲区 ps STATIC_DRAW 告诉显卡为静态数据不修改
+             * webgl.STATIC_DRAW 向缓冲区中写入一次数据， 但需要绘制很多次
+             * webgl.STREAM_DRAW 写入一次数据，绘制若干次
+             * webgl.DYNAMIC_DRAW  向缓冲区中多次写入数据， 绘制多次
+             */
+            gl.bufferData(gl.ARRAY_BUFFER, vertexs, gl.STATIC_DRAW);
+            //指定从重第几个字节开始更新 第一次全部写入缓冲区
+            //gl.bufferSubData(gl.ARRAY_BUFFER,0,indices);
+
+            //绘制背景颜色
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            //清除背景指定使用哪一个缓冲区
+            gl.bindBuffer(gl.ARRAY_BUFFER, vertexbuffer);
+            //顶点属性指针进行绑定
+            gl.vertexAttribPointer(v3Position, 3, gl.FLOAT, false, 4 * 6, 0);
+            //启用顶点属性数组并且使用上一个状态绑定的缓冲区
+            gl.enableVertexAttribArray(v3Position);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            //开始绘制
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+            function upFrame() {
+                stats.begin();
+                //开始绘制
+                gl.drawArrays(gl.TRIANGLES, 0, 6);
+                stats.end();
+                window.requestAnimationFrame(upFrame);
+            }
+            // window.requestAnimationFrame(upFrame);
+            canvas.addEventListener('click', upFrame)
+        }));
+    </script>
+</body>
+
+</html>
