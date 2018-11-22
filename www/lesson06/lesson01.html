@@ -152,6 +152,7 @@
                         varying   vec2 ouv;//输出给片段着色器
                         varying   vec4 outColor;//输出给片段着色器
                         uniform   sampler2D texture;//纹理对象
+                        
                         void main(){
                             gl_FragColor = outColor * texture2D(texture,ouv);
                         }

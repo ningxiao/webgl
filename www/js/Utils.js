@@ -66,7 +66,7 @@ Utils.WebGlContext = (canvas, opt_debug, opt_onerror) => {
     //兼容处理
     let gl, config = ['webg2', 'webgl', 'experimental-webgl', 'webkit-3d', 'moz-webgl'];
     if (opt_debug) {
-        opt_onerror = opt_onerror || function(ev) {
+        opt_onerror = opt_onerror || function (ev) {
             console.log('[WEBGL]: ', ev.statusMessage);
         };
         canvas.addEventListener('webglcontextlost', (ev) => {
@@ -171,25 +171,25 @@ Utils.queryString = (name) => {
     if (href != null) return encodeURIComponent(href[2]);
     return null;
 },
-/**
- * 获取GPU定义的变量引用
- * @param {webgl} gl      webgl对象
- * @param {Program} program   混合好顶点着色与片元着色的着色器
- * @param {String} name    获取对象名称
- * @param {boolean} isbool   false获取顶点片段变量 true获取片源着色器片段域
- * @return {int} 成功返回 是大于或者大于0的变量存储地址 -1为变量地址不存在
- */
-Utils.GetGpuLocation = (gl, program, name, isbool) => {
-    if (gl && program) {
-        if (isbool) {
-            //获取片源着色器变量失败返回null
-            return gl.getUniformLocation(program, name) || -1;
+    /**
+     * 获取GPU定义的变量引用
+     * @param {webgl} gl      webgl对象
+     * @param {Program} program   混合好顶点着色与片元着色的着色器
+     * @param {String} name    获取对象名称
+     * @param {boolean} isbool   false获取顶点片段变量 true获取片源着色器片段域
+     * @return {int} 成功返回 是大于或者大于0的变量存储地址 -1为变量地址不存在
+     */
+    Utils.GetGpuLocation = (gl, program, name, isbool) => {
+        if (gl && program) {
+            if (isbool) {
+                //获取片源着色器变量失败返回null
+                return gl.getUniformLocation(program, name) || -1;
+            };
+            //获取顶点着色器变量失败返回-1
+            return gl.getAttribLocation(program, name);
         };
-        //获取顶点着色器变量失败返回-1
-        return gl.getAttribLocation(program, name);
+        return -1;
     };
-    return -1;
-};
 /**
  * 缓冲区设置顶点着色器数据
  * @param {webgl} gl   canvas的webgl持有对象
@@ -202,7 +202,7 @@ Utils.GetGpuLocation = (gl, program, name, isbool) => {
  * @param {int} offset 分量数据位移 如 xyz uv
  * @return {int} count  成功返回 渲染点的数量 失败返回 0
  */
-Utils.EnableBuffer = (gl, type, program, name, data, size, stride, offset)=>{
+Utils.EnableBuffer = (gl, type, program, name, data, size, stride, offset) => {
     let count, fsize, position, buffer;
     if (!(gl && data.length > 0 && size && name)) {
         console.log("传入参数错误");
@@ -221,7 +221,7 @@ Utils.EnableBuffer = (gl, type, program, name, data, size, stride, offset)=>{
      * gl. ARRAY_BUFFER  表示缓冲区对象中包含了顶点的数据。
      * gl.ELEMENT_ARRAY_BUFFER 表示缓冲区包含了顶点的索引值。
      */
-    gl.bindBuffer(type?gl.ELEMENT_ARRAY_BUFFER:gl.ARRAY_BUFFER, buffer);
+    gl.bindBuffer(type ? gl.ELEMENT_ARRAY_BUFFER : gl.ARRAY_BUFFER, buffer);
     /**
      * 创建指定大小显卡缓冲区 ps STATIC_DRAW 告诉显卡为静态数据不修改
      * webgl.STATIC_DRAW 向缓冲区中写入一次数据， 但需要绘制很多次
@@ -237,12 +237,12 @@ Utils.EnableBuffer = (gl, type, program, name, data, size, stride, offset)=>{
         return 0;
     };
     //将缓冲区对象分配给着色器变量
-    gl.vertexAttribPointer(position, size, gl.FLOAT, false, stride * fsize,  (offset || 0) *fsize);
+    gl.vertexAttribPointer(position, size, gl.FLOAT, false, stride * fsize, (offset || 0) * fsize);
     //将顶点变量与分配的缓冲区对象连接起来
     gl.enableVertexAttribArray(position);
     return count;
 }
-Utils.AddTexture = (gl, program,bitmap,width,height,rept)=>{
+Utils.AddTexture = (gl, bitmap, width, height, rept) => {
     //创建纹理对象
     let texture = gl.createTexture();
     //将创建的纹理单元绑定
@@ -250,43 +250,43 @@ Utils.AddTexture = (gl, program,bitmap,width,height,rept)=>{
     //将纹理图片反转
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     //将img绑定到纹理
-    if(bitmap){// 当图片存在的时候利用图片创建纹理
+    if (bitmap) {// 当图片存在的时候利用图片创建纹理
         texture.bitmap = bitmap;
         //配置纹理参数
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bitmap);
-    }else{// 如果不存在 并且设置了 高宽 说明需要创建一个存颜色的纹理对象
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA,width,height,0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    } else {// 如果不存在 并且设置了 高宽 说明需要创建一个存颜色的纹理对象
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     }
     //指定滤波类型
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    if(rept){
+    if (rept) {
         //平铺
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-    }else{
+    } else {
         //主要解决部分显卡不支持2的N次方的展示
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     }
     //绑定一个空纹理 清空状态机
-    gl.bindTexture(gl.TEXTURE_2D,null);
+    gl.bindTexture(gl.TEXTURE_2D, null);
     return texture;
 }
-Utils.BindTexture = (gl, program, name, x, texture)=>{
-    let location = Utils.GetGpuLocation(gl, program, name,true);
+Utils.BindTexture = (gl, program, name, x, texture) => {
+    let location = Utils.GetGpuLocation(gl, program, name, true);
     //开启0号纹理单元
     gl.activeTexture(gl["TEXTURE" + x]);
     //绑定纹理
-    gl.bindTexture(gl.TEXTURE_2D,texture);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
     //设置纹理
-    gl.uniform1i(location,x);
+    gl.uniform1i(location, x);
 }
-Utils.LoadedTexture = (gl,image)=>{
+Utils.LoadedTexture = (gl, image) => {
     //创建纹理
     let texture = gl.createTexture();
     texture.image = image;//给纹理添加动态属性
-    gl.bindTexture(gl.TEXTURE_2D,texture);//将纹理进行绑定
+    gl.bindTexture(gl.TEXTURE_2D, texture);//将纹理进行绑定
     //将纹理图片反转坐标反转 因为纹理坐标Y轴是由上到下为正 必须转为webgl坐标
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
     //纹理进行图片采集 使用等级0 目标与结构均为RGBA 数据大小0-255 颜色值
@@ -295,21 +295,21 @@ Utils.LoadedTexture = (gl,image)=>{
      *  GLsizei width, GLsizei height, GLint border, GLenum format,
      *  GLenum type, ArrayBufferView? pixels);
      **/
-    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,texture.image);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
     //纹理放大使用gl.NEAREST 最近采样算法 gl.LINEAR 线性采样算法 效果好效率低
-    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     //纹理缩小算法
-    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     /**
      * 纹理进出包装 超出UV采集 例如最大S为1 如果设置2 进行图片补全
      * REPEAT 使用纹理重复填充
      * CLAMP_TO_EDGE 边缘点进行填充
      * MIRRORED_REPEAT 镜像平铺填充
      **/
-    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);
-    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
     //绑定一个空纹理
-    gl.bindTexture(gl.TEXTURE_2D,null);
+    gl.bindTexture(gl.TEXTURE_2D, null);
     return texture;
 }
 /**
@@ -317,7 +317,7 @@ Utils.LoadedTexture = (gl,image)=>{
  * @param {number} min 最小范围
  * @param {number} max 最小范围
  */
-Utils.Random = function(min, max) {
+Utils.Random = function (min, max) {
     return Math.floor(min + Math.random() * (max - min));
 };
 /**
@@ -326,8 +326,8 @@ Utils.Random = function(min, max) {
  * @returns {number}
  * @constructor
  */
-Utils.DegToRad = function(deg) {
-    return deg/180*Math.PI;
+Utils.DegToRad = function (deg) {
+    return deg / 180 * Math.PI;
 };
 /**
  * 传统鼠标的坐标转换为webgl坐标
@@ -352,10 +352,10 @@ Utils.LocalToGobal = (cw, ch, rect, cx, cy) => {
  */
 Utils.CaptureMouse = (element) => {
     var mouse = {
-            x: 0,
-            y: 0,
-            event: null
-        },
+        x: 0,
+        y: 0,
+        event: null
+    },
         body_scrollLeft = document.body.scrollLeft,
         element_scrollLeft = document.documentElement.scrollLeft,
         body_scrollTop = document.body.scrollTop,
@@ -386,11 +386,11 @@ Utils.CaptureMouse = (element) => {
  */
 Utils.CaptureTouch = (element) => {
     var touch = {
-            x: null,
-            y: null,
-            isPressed: false,
-            event: null
-        },
+        x: null,
+        y: null,
+        isPressed: false,
+        event: null
+    },
         body_scrollLeft = document.body.scrollLeft,
         element_scrollLeft = document.documentElement.scrollLeft,
         body_scrollTop = document.body.scrollTop,
@@ -486,7 +486,7 @@ Utils.ContainsPoint = (rect, x, y) => {
  * 浏览器帧频对象 获取
  * @return {requestAnimationFrame}           requestAnimationFrame
  */
-window.requestAnimationFrame || (window.requestAnimationFrame = window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame || window.msRequestAnimationFrame || window.oRequestAnimationFrame || function(callback) {
+window.requestAnimationFrame || (window.requestAnimationFrame = window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame || window.msRequestAnimationFrame || window.oRequestAnimationFrame || function (callback) {
     setTimeout(callback, 1000 / 60);
 });
 
