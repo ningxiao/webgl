@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>GLSL</title>
+    <title>纹理黑白化与使用压缩纹理</title>
     <style type="text/css">
         * {
             margin: 0;
@@ -53,9 +53,9 @@
     <script src="../js/axios.min.js"></script>
     <script src="../js/stats.js"></script>
     <script>
-        const stats = new Stats();
-        stats.showPanel(1); // 0: fps, 1: ms, 2: mb, 3+: custom
-        document.body.appendChild(stats.dom);
+        // const stats = new Stats();
+        // stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
+        // document.body.appendChild(stats.dom);
         function getFrag() {
             return axios.get('./shader/09.frag');
         }
@@ -70,7 +70,9 @@
                 let indexsbuffer;
                 let v3Position;
                 let i_uv;
+                let u_time;
                 let texture;
+                let u_resolution;
                 let gl, ctx, program, vertexShader, fragmentShader;
                 let canvas = document.querySelector('canvas');
                 canvas.setAttribute('width', config.width);
@@ -87,11 +89,34 @@
                 program = Utils.WebProgram(gl, vertexShader, fragmentShader);
                 //只可以链接之后读取使用 优先使用
                 v3Position = gl.getAttribLocation(program, "v3Position");
+                u_resolution = gl.getUniformLocation(program, "u_resolution");
+                u_time = gl.getUniformLocation(program, "u_time");
+                // 也可以使用数组模式
+                gl.uniform2fv(u_resolution, new Float32Array([config.width, config.height]));
                 // 获取纹理坐标
                 i_uv = gl.getAttribLocation(program, "i_uv");
                 // 获取纹理对象
                 texture = gl.getUniformLocation(program, "texture");
                 //顶点数据
+                // vertexs = new Float32Array([
+                //     // x    y     z   s   t
+                //     -1.0, 1.0, 0.0, 0.0, 0.0,
+                //     0.0, 1.0, 0.0, 0.5, 0.0,
+                //     0.0, -1.0, 0.0, 0.5, 1.0,
+
+                //     -1.0, 1.0, 0.0, 0.0, 0.0,
+                //     0.0, -1.0, 0.0, 0.5, 1.0,
+                //     -1.0, -1.0, 0.0, 0.0, 1.0,
+
+                //     0.0, 1.0, 0.0, 0.5, 0.0,
+                //     1.0, 1.0, 0.0, 1.0, 0.0,
+                //     1.0, -1.0, 0.0, 1.0, 1.0,
+
+                //     0.0, 1.0, 0.0, 0.5, 0.0,
+                //     1.0, -1.0, 0.0, 1.0, 1.0,
+                //     0.0, -1.0, 0.0, 0.5, 1.0,
+                // ]);
+
                 vertexs = new Float32Array([
                     // x    y     z   s   t
                     -1.0, 1.0, 0.0, 0.0, 0.0,
@@ -102,6 +127,7 @@
                     1.0, -1.0, 0.0, 1.0, 1.0,
                     -1.0, -1.0, 0.0, 0.0, 1.0,
                 ]);
+                const point = vertexs.byteLength / (4 * 5);
                 //创建数据缓冲区
                 vertexbuffer = gl.createBuffer();
                 /**
@@ -127,17 +153,35 @@
                 //给UV坐标赋值
                 gl.vertexAttribPointer(i_uv, 2, gl.FLOAT, false, 4 * 5, 3 * 4);
                 gl.enableVertexAttribArray(i_uv);
+                console.time('纹理耗时');
                 //激活纹理第0号
                 gl.activeTexture(gl.TEXTURE0);
                 //绑定纹理
                 gl.bindTexture(gl.TEXTURE_2D, Utils.AddTexture(gl, textures["29c2.png"]));
-                //设置纹理
+                //设置纹理读取第0个单元纹理
                 gl.uniform1i(texture, 0);
+                console.timeEnd('纹理耗时');
                 console.time('绘制耗时计算');
                 gl.clear(gl.COLOR_BUFFER_BIT);
                 //开始绘制
-                gl.drawArrays(gl.TRIANGLES, 0, 6);
+                gl.drawArrays(gl.TRIANGLES, 0, point);
                 console.timeEnd('绘制耗时计算');
+                let sum = 1.0;
+                function upFrame() {
+                    // stats.begin();
+                    gl.clear(gl.COLOR_BUFFER_BIT);
+                    gl.uniform1f(u_time,sum);
+                    if(sum>1){
+                        sum = 0;
+                    }
+                    sum++;
+                    //开始绘制
+                    gl.drawArrays(gl.TRIANGLES, 0, 6);
+                    // stats.end();
+                    // window.requestAnimationFrame(upFrame);
+                }
+                upFrame();
+               // setInterval(upFrame,1000/1);
             }));
         }
         Utils.QueueImg([{ '29c2.png': './textures/35bbd742af25e834c9608ac5d6df29c2.png' }], webglStart);

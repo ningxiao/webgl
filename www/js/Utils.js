@@ -89,6 +89,7 @@ Utils.WebGlContext = (canvas, opt_debug, opt_onerror) => {
             console.log(err);
         };
         if (gl) {
+            console.log(config[i]);
             break;
         };
     };
@@ -128,9 +129,10 @@ Utils.WebProgram = (gl, vertexshader, fragmentshader) => {
         gl.deleteShader(fragmentShader);
         gl.deleteShader(vertexShader);
         program = null;
-    };
-    //开始运行program
-    gl.useProgram(program);
+    } else {
+        //开始运行program
+        gl.useProgram(program);
+    }
     return program;
 };
 /**
@@ -232,7 +234,7 @@ Utils.EnableBuffer = (gl, type, program, name, data, size, stride, offset) => {
     //获取顶点着色器变量
     position = Utils.GetGpuLocation(gl, program, name);
     if (position < 0) {
-        gl.deleteBuffer(buffer);
+        gl.deleteBuffer(buffer);// 销毁缓冲
         console.log("获取WebGl顶点变量" + name + "失败");
         return 0;
     };
@@ -242,18 +244,54 @@ Utils.EnableBuffer = (gl, type, program, name, data, size, stride, offset) => {
     gl.enableVertexAttribArray(position);
     return count;
 }
+Utils.ZipTexture = (gl) => {
+    const currentCompressedTextureType = (() => {
+        const compressedTextureType = ['s3tc', 'etc1', 'pvrtc'];
+        const availableExtensions = gl.getSupportedExtensions();
+        for (let i = 0, size = availableExtensions.length; i < size; i++) {
+            for (let j = 0; j < compressedTextureType.length; j++) {
+                if (availableExtensions[i].indexOf(compressedTextureType[j]) > 0) {
+                    const extension = gl.getExtension(availableExtensions[i]);
+                    const formats = gl.getParameter(gl.COMPRESSED_TEXTURE_FORMATS);
+                    for (let key in extension) {
+                        console.log(key, extension[key], '0x' + extension[key].toString(16));
+                    }
+                    return {
+                        type: compressedTextureType[j],
+                        extension: extension,
+                        formats: formats
+                    };
+                }
+            }
+        }
+        Utils.ZipTexture  = (gl)=>{
+            return currentCompressedTextureType;
+        }
+    })();
+    return currentCompressedTextureType;
+}
 Utils.AddTexture = (gl, bitmap, width, height, rept) => {
     //创建纹理对象
-    let texture = gl.createTexture();
+    const texture = gl.createTexture();
+    const TextureType = Utils.ZipTexture(gl);
     //将创建的纹理单元绑定
     gl.bindTexture(gl.TEXTURE_2D, texture);
     //将纹理图片反转
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    //  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     //将img绑定到纹理
     if (bitmap) {// 当图片存在的时候利用图片创建纹理
         texture.bitmap = bitmap;
+        console.log('---', bitmap);
         //配置纹理参数
+        console.time('纹理上传显卡耗时');
+        console.log('++++',TextureType.formats[0]);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bitmap);
+        // if(false){
+        //     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bitmap);
+        // }else{
+        //     gl.compressedTexImage2D(gl.TEXTURE_2D, 0, TextureType.formats[0], width, height, 0, bitmap);
+        // }
+        console.timeEnd('纹理上传显卡耗时');
     } else {// 如果不存在 并且设置了 高宽 说明需要创建一个存颜色的纹理对象
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     }

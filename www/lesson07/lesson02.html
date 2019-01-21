@@ -84,7 +84,7 @@
             fragmentShader = Utils.WebGLShader(gl, "x-fragment", frag.data);
             //创建一个渲染可执行程序
             program = Utils.WebProgram(gl, vertexShader, fragmentShader);
-            //只可以链接之后读取使用 优先使用
+            //只可以链接之后读取使用 优先使用 attribute的使用场景
             v3Position = gl.getAttribLocation(program, "v3Position");
             u_resolution = gl.getUniformLocation(program, "u_resolution");
             // 也可以使用数组模式

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>WebGL2.0使用</title>
+    <style type="text/css">
+        * {
+            margin: 0;
+            padding: 0;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+        }
+
+        .panel {
+            overflow: hidden;
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 0;
+        }
+
+        canvas {
+            position: absolute;
+        }
+    </style>
+    <script src="../js/Utils.js"></script>
+</head>
+
+<body>
+    <div class="panel">
+        <canvas width="100%" height="100%"></canvas>
+    </div>
+    <script type="text/javascript">
+        (function (exports) {
+            const clientrect = document.documentElement.getBoundingClientRect();
+            document.addEventListener('touchmove', function (event) {
+                event.preventDefault();
+            });
+            exports.config = {
+                width: clientrect.width,
+                height: clientrect.height
+            };
+        })(typeof exports === 'object' ? exports : window);
+    </script>
+    <script src="../js/axios.min.js"></script>
+    <script src="../js/stats.js"></script>
+    <script>
+        const stats = new Stats();
+        stats.showPanel(1); // 0: fps, 1: ms, 2: mb, 3+: custom
+        document.body.appendChild(stats.dom);
+        function getFrag() {
+            return axios.get('./shader/12.frag');
+        }
+        function getVert() {
+            return axios.get('./shader/04.vert');
+        }
+        function webglStart(textures) {
+            axios.all([getVert(), getFrag()]).then(axios.spread((vert, frag) => {
+                let indexs;
+                let vertexs;
+                let vertexbuffer;
+                let indexsbuffer;
+                let blockbuffer;
+                let v3Position;
+                let i_uv;
+                let texture;
+                let in_block;
+                let gl, ctx, program, vertexShader, fragmentShader;
+                let canvas = document.querySelector('canvas');
+                canvas.setAttribute('width', config.width);
+                canvas.setAttribute('height', config.height);
+                canvas.addEventListener("webglcontextcreationerror", ev => {
+                    console.log(ev.statusMessage || "Unknown");
+                }, false);
+                //获取webgl上下文
+                gl = canvas.getContext('webgl2', { antialias: false });
+                gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+                //创建gl着色器引用
+                vertexShader = Utils.WebGLShader(gl, "x-vertex", vert.data);
+                fragmentShader = Utils.WebGLShader(gl, "x-fragment", frag.data);
+                //创建一个渲染可执行程序
+                program = Utils.WebProgram(gl, vertexShader, fragmentShader);
+                // 减少内存占用量
+                gl.deleteShader(fragmentShader);
+                gl.deleteShader(vertexShader);
+                //只可以链接之后读取使用 优先使用
+                // v3Position = gl.getAttribLocation(program, "v3Position");
+                // webgl2.0可以使用layout关键字 定义 layout(location=0)
+                // webgl2 实现共享Block
+                in_block = gl.getUniformBlockIndex(program, 'InBlock');
+                gl.uniformBlockBinding(program, in_block, 0);
+                //创建数据缓冲区
+                blockbuffer = gl.createBuffer();
+                blockdata = new Float32Array([
+                    0.299, 0.587, 0.14, 1.0
+                ]);
+                gl.bindBuffer(gl.UNIFORM_BUFFER, blockbuffer);
+                // gl.bufferData(gl.UNIFORM_BUFFER, blockdata, gl.STATIC_DRAW);
+                gl.bufferData(gl.UNIFORM_BUFFER, blockdata.byteLength, gl.STATIC_DRAW);
+                // gl.bufferData(gl.UNIFORM_BUFFER, blockdata, gl.STATIC_DRAW);
+                gl.bindBuffer(gl.UNIFORM_BUFFER, null);
+                gl.bindBufferBase(gl.UNIFORM_BUFFER, 0, blockbuffer);
+                // 动态写入缓存数据
+                gl.bufferSubData(gl.UNIFORM_BUFFER, 0, blockdata, 0);
+                v3Position = 0;
+                // 获取纹理坐标
+                //i_uv = gl.getAttribLocation(program, "i_uv");
+                i_uv = 1;
+                // 获取纹理对象
+                texture = gl.getUniformLocation(program, "u_texture");
+                //顶点数据
+                vertexs = new Float32Array([
+                    // x    y     z   s   t
+                    -1.0, 1.0, 0.0, 0.0, 0.0,
+                    1.0, 1.0, 0.0, 1.0, 0.0,
+                    1.0, -1.0, 0.0, 1.0, 1.0,
+
+                    -1.0, 1.0, 0.0, 0.0, 0.0,
+                    1.0, -1.0, 0.0, 1.0, 1.0,
+                    -1.0, -1.0, 0.0, 0.0, 1.0,
+                ]);
+                //创建数据缓冲区
+                vertexbuffer = gl.createBuffer();
+                /**
+                 * 将创建的缓冲区设置为顶点缓冲区
+                 * webgl. ARRAY_BUFFER  表示缓冲区对象中包含了顶点的数据。
+                 * webgl.ELEMENT_ARRAY_BUFFER 表示缓冲区包含了顶点的索引值。
+                 */
+                gl.bindBuffer(gl.ARRAY_BUFFER, vertexbuffer);
+                /**
+                 * 创建指定大小显卡缓冲区 ps STATIC_DRAW 告诉显卡为静态数据不修改
+                 * webgl.STATIC_DRAW 向缓冲区中写入一次数据， 但需要绘制很多次
+                 * webgl.STREAM_DRAW 写入一次数据，绘制若干次
+                 * webgl.DYNAMIC_DRAW  向缓冲区中多次写入数据， 绘制多次
+                 */
+                gl.bufferData(gl.ARRAY_BUFFER, vertexs, gl.DYNAMIC_DRAW);
+                //指定从重第几个字节开始更新 第一次全部写入缓冲区
+                //gl.bufferSubData(gl.ARRAY_BUFFER,0,indices);
+
+                //顶点属性指针进行绑定
+                gl.vertexAttribPointer(v3Position, 3, gl.FLOAT, false, 4 * 5, 0);
+                //启用顶点属性数组并且使用上一个状态绑定的缓冲区
+                gl.enableVertexAttribArray(v3Position);
+                //给UV坐标赋值
+                gl.vertexAttribPointer(i_uv, 2, gl.FLOAT, false, 4 * 5, 3 * 4);
+                gl.enableVertexAttribArray(i_uv);
+                console.time('纹理处理耗时');
+                //激活纹理第0号
+                gl.activeTexture(gl.TEXTURE0);
+                //绑定纹理
+                gl.bindTexture(gl.TEXTURE_2D, Utils.AddTexture(gl, textures["29c2.png"]));
+                //设置纹理读取第0个单元纹理
+                gl.uniform1i(texture, 0);
+                console.timeEnd('纹理处理耗时');
+                console.time('绘制耗时计算');
+                gl.clear(gl.COLOR_BUFFER_BIT);
+                //开始绘制
+                gl.drawArrays(gl.TRIANGLES, 0, 6);
+                console.timeEnd('绘制耗时计算');
+            }));
+        }
+        Utils.QueueImg([{ '29c2.png': './textures/35bbd742af25e834c9608ac5d6df29c2.png' }], webglStart);
+    </script>
+</body>
+
+</html>

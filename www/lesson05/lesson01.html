@@ -291,8 +291,8 @@
             gl.vertexAttribPointer(v3position, 3, gl.FLOAT, false, 4 * 9, 0);
             gl.vertexAttribPointer(iuv, 2, gl.FLOAT, false, 4 * 9, 4 * 3);
             gl.vertexAttribPointer(inColor, 4, gl.FLOAT, false, 4 * 9, 4 * 5);
-            textureHandle = Utils.AddTexture (gl, program,bitmap['test.gif']);
-            textureGround   =   Utils.AddTexture (gl, program,bitmap['1.jpg'],0,0,true);
+            textureHandle = Utils.AddTexture (gl,bitmap['test.gif']);
+            textureGround   =   Utils.AddTexture (gl,bitmap['1.jpg'],0,0,true);
             glfbo = createFOB(config.width,config.height);
 
         };
@@ -317,7 +317,7 @@
             //将帧缓冲绑定到深度缓冲区
             gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depthObj);
             // 创建一个空纹理对象进行纹理对象拷贝存放 纹理及是颜色缓冲区
-            textureDynamic =  Utils.AddTexture (gl, program,null,width, height);
+            textureDynamic =  Utils.AddTexture (gl,null,width, height);
             // 将纹理缓冲区绑定到帧缓冲区
             gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, textureDynamic, 0);
             // 恢复到原始fbo 使用系统自建

@@ -230,9 +230,9 @@
             gl.vertexAttribPointer(v3position, 3, gl.FLOAT, false, 4 * 9, 0);
             gl.vertexAttribPointer(iuv, 2, gl.FLOAT, false, 4 * 9, 4 * 3);
             gl.vertexAttribPointer(inColor, 4, gl.FLOAT, false, 4 * 9, 4 * 5);
-            textureHandle = Utils.AddTexture (gl, program,bitmap['test.gif']);
+            textureHandle = Utils.AddTexture (gl,bitmap['test.gif']);
             // 创建一个空纹理对象进行纹理对象拷贝
-            textureDynamic =  Utils.AddTexture (gl, program,null,config.width,config.height);
+            textureDynamic =  Utils.AddTexture (gl,null,config.width,config.height);
 
         };
         function createFOB(width, height) {
