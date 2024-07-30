@@ -198,6 +198,11 @@ const routing = {
 };
 let httpserver, port = 8080;
 httpserver = http.createServer((req, res) => {
+    if (path.normalize(decodeURI(req.url)) !== decodeURI(req.url)) {
+        res.statusCode = 403;
+        res.end();
+        return;
+    }
     let host, body = url.parse(req.url, true);
     let query = body.query;
     let pathname = body.pathname;
